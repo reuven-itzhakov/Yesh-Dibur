@@ -6,9 +6,15 @@ const errorHandler = require('./utils/errorHandler');
 
 const app = express();
 
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(helmet());
-app.use(cors());
+app.use(cors({
+  origin: process.env.CLIENT_URL || '*',
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json({ limit: '2mb' }));
 app.use(rateLimiter);
 
@@ -29,10 +35,10 @@ app.use('/api/v1/feeds', feeds);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', timestamp: new Date() });
 });
 
-// Error handling
+// Global Error handling middleware
 app.use(errorHandler);
 
 module.exports = app;

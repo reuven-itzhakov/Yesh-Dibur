@@ -1,25 +1,25 @@
 const express = require('express');
-const authenticate = require('../../middlewares/auth');
-
 const router = express.Router();
+const userController = require('../../controllers/userController');
+const authenticate = require('../../middlewares/auth');
+const validate = require('../../middlewares/validate');
+const { registerSchema, updateProfileSchema } = require('../../validations/userValidation');
 
-// User routes
-router.use(authenticate);
+// 1. הרשמה - משתמש בשער הגנה של וולידציית קלט בלבד (האימות הראשוני מבוצע מול Firebase בלקוח)
+router.post('/register', validate(registerSchema), userController.registerUser);
 
-router.get('/', (req, res) => {
-  // GET /api/v1/users
-});
+// 2. נתיבים מוגנים - דורשים חומת אימות טוקן (authenticate)
+router.get('/profile', authenticate, userController.getOwnProfile);
+router.put('/profile', authenticate, validate(updateProfileSchema), userController.updateProfile);
+router.delete('/profile', authenticate, userController.deleteAccount); // מחיקה רכה
 
-router.get('/:id', (req, res) => {
-  // GET /api/v1/users/:id
-});
+// 3. שליפת פרופיל של משתמש אחר (ציבורי)
+router.get('/:id', authenticate, userController.getPublicProfile);
 
-router.put('/:id', (req, res) => {
-  // PUT /api/v1/users/:id
-});
+// 4. מוני התראות ובאדג'ים
+router.get('/badges', authenticate, userController.getBadges);
 
-router.delete('/:id', (req, res) => {
-  // DELETE /api/v1/users/:id
-});
+// 5. קבוצות שהמשתמש חבר בהן
+router.get('/groups', authenticate, userController.getMyGroups);
 
 module.exports = router;

@@ -1,19 +1,40 @@
 const chatSocket = require('./chatSocket');
+const { auth } = require('../config/firebase');
 
 const socketManager = (io) => {
+  // אימות בשלב ה-Handshake (לפני יצירת החיבור בפועל)
+  io.use(async (socket, next) => {
+    try {
+      // שליפת הטוקן מתוך פרמטרי ההתחברות שהלקוח שולח
+      const token = socket.handshake.auth.token || socket.handshake.headers.authorization;
+      
+      if (!token) {
+        return next(new Error('Authentication error: No token provided'));
+      }
+
+      // ניקוי הקידומת במקרה שהיא נשלחה
+      const actualToken = token.startsWith('Bearer ') ? token.split(' ')[1] : token;
+
+      // אימות הטוקן מול שרתי פיירבייס
+      const decodedToken = await auth.verifyIdToken(actualToken);
+      
+      // הצמדת פרטי המשתמש לאובייקט הסוקט כדי שיהיו זמינים בכל האירועים
+      socket.user = decodedToken;
+      next();
+    } catch (error) {
+      console.error('Socket authentication failed:', error.message);
+      next(new Error('Authentication error: Invalid token'));
+    }
+  });
+
   io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
+    console.log(`User connected to Yesh Dibur: ${socket.id}, UID: ${socket.user.uid}`);
 
-    // Authenticate socket
-    socket.on('authenticate', (data) => {
-      // TODO: Verify Firebase token and join user rooms
-    });
-
-    // Chat events
+    // הפעלת אירועי הצ'אט והעברת אובייקט הסוקט המאומת
     chatSocket(io, socket);
 
-    socket.on('disconnect', () => {
-      console.log(`User disconnected: ${socket.id}`);
+    socket.on('disconnect', (reason) => {
+      console.log(`User disconnected (UID: ${socket.user.uid}), Reason: ${reason}`);
     });
   });
 };

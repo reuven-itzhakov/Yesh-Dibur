@@ -14,9 +14,13 @@ const logger = winston.createLogger({
         winston.format.simple()
       ),
     }),
-    new winston.transports.File({ filename: 'logs/error.log', level: 'error' }),
-    new winston.transports.File({ filename: 'logs/combined.log' }),
   ],
 });
+
+// שמירה לקבצים רק בסביבת פיתוח מקומית כדי למנוע איבוד מידע בקונטיינרים בענן
+if (process.env.NODE_ENV === 'development') {
+  logger.add(new winston.transports.File({ filename: 'logs/error.log', level: 'error' }));
+  logger.add(new winston.transports.File({ filename: 'logs/combined.log' }));
+}
 
 module.exports = logger;
