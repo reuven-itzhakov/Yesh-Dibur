@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # מסד הנתונים הראשי הכולל את הרחבת המיקום (PostGIS)
   postgres:

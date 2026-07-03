@@ -6,7 +6,7 @@ const validate = require('../../middlewares/validate');
 const { registerSchema, updateProfileSchema } = require('../../validations/userValidation');
 
 // 1. הרשמה - משתמש בשער הגנה של וולידציית קלט בלבד (האימות הראשוני מבוצע מול Firebase בלקוח)
-router.post('/register', validate(registerSchema), userController.registerUser);
+router.post('/register', authenticate, validate(registerSchema), userController.registerUser);
 
 // 2. נתיבים מוגנים - דורשים חומת אימות טוקן (authenticate)
 router.get('/profile', authenticate, userController.getOwnProfile);

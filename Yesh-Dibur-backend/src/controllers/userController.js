@@ -5,7 +5,7 @@ const userController = {
   registerUser: async (req, res, next) => {
     try {
       // כאן נעביר גם את נתוני המשתמש וגם את ה-UID שחולץ מהלקוח אם נרצה
-      const newUser = await userService.createUser(req.body);
+      const newUser = await userService.createUser(req.user.uid, req.body);
       res.status(201).json(newUser);
     } catch (error) {
       next(error);
