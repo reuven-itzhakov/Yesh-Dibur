@@ -4,6 +4,8 @@ const userController = require('../../controllers/userController');
 const authenticate = require('../../middlewares/auth');
 const validate = require('../../middlewares/validate');
 const { registerSchema, updateProfileSchema } = require('../../validations/userValidation');
+const deviceController = require('../../controllers/deviceController');
+const { deviceSchema } = require('../../validations/deviceValidation');
 
 // 1. הרשמה - משתמש בשער הגנה של וולידציית קלט בלבד (האימות הראשוני מבוצע מול Firebase בלקוח)
 router.post('/register', authenticate, validate(registerSchema), userController.registerUser);
@@ -21,5 +23,9 @@ router.get('/badges', authenticate, userController.getBadges);
 
 // 5. קבוצות שהמשתמש חבר בהן
 router.get('/groups', authenticate, userController.getMyGroups);
+
+// ניהול מכשירים (Push Notifications)
+router.post('/device', validate(deviceSchema), deviceController.registerDevice);
+router.delete('/device', deviceController.removeDevice);
 
 module.exports = router;

@@ -9,6 +9,6 @@ const router = express.Router();
 router.use(authenticate);
 
 // נתיב החיפוש המרכזי (תומך ב-Query Parameters)
-router.get('/', validate(searchSchema), searchController.search);
+router.get('/', searchController.search);
 
 module.exports = router;

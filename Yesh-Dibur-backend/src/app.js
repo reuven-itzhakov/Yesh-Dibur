@@ -25,6 +25,7 @@ const threads = require('./api/v1/threads');
 const chats = require('./api/v1/chats');
 const search = require('./api/v1/search');
 const feeds = require('./api/v1/feeds');
+const notifications = require('./api/v1/notifications');
 
 app.use('/api/v1/users', users);
 app.use('/api/v1/groups', groups);
@@ -32,6 +33,7 @@ app.use('/api/v1/threads', threads);
 app.use('/api/v1/chats', chats);
 app.use('/api/v1/search', search);
 app.use('/api/v1/feeds', feeds);
+app.use('/api/v1/notifications', notifications);
 
 // Health check
 app.get('/health', (req, res) => {
