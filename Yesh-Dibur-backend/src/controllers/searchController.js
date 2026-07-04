@@ -1,9 +1,11 @@
+const searchService = require('../services/searchService');
+
 const searchController = {
   search: async (req, res, next) => {
     try {
-      const { q, type, page, limit } = req.query;
-      // TODO: Implement search logic
-      res.json({ results: [], query: q, type, page, limit });
+      // req.query כבר עבר המרה למספרים ואימות דרך Zod
+      const results = await searchService.search(req.user.uid, req.query);
+      res.json(results);
     } catch (error) {
       next(error);
     }
