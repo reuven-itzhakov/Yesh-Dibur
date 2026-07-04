@@ -13,7 +13,6 @@ jest.mock('../src/middlewares/auth', () => {
 });
 
 // 2. חיקוי (Mock) ל-RabbitMQ כדי שהטסטים לא יקרסו בניסיון חיבור לתור
-// 2. חיקוי (Mock) ל-RabbitMQ כדי שהטסטים לא יקרסו בניסיון חיבור לתור
 const mockChannel = {
   publish: jest.fn()
 };
