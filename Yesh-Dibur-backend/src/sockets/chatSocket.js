@@ -1,5 +1,5 @@
-// בעתיד נייבא לכאן את ה-Service שיכתוב למסד הנתונים:
-// const chatService = require('../services/chatService');
+const chatService = require('../services/chatService');
+const { getChannel } = require('../config/rabbitmq'); // ייבוא ערוץ התקשורת של ראביט
 
 const chatSocket = (io, socket) => {
   
@@ -13,45 +13,51 @@ const chatSocket = (io, socket) => {
     console.log(`User ${socket.user.uid} left chat ${chatId}`);
   });
 
-  // הוספת מנגנון Acknowledgement (ACK) בעזרת פרמטר callback
   socket.on('sendMessage', async (data, callback) => {
     try {
-      // וולידציה בסיסית
-      if (!data.chatId || !data.content) {
+      if (!data.chatId || !data.content || !data.receiverId) {
         if (typeof callback === 'function') {
           callback({ status: 'error', error: 'Missing required fields' });
         }
         return;
       }
 
-      // TODO: כאן תיכנס הלוגיקה של שמירת ההודעה למסד הנתונים (PostgreSQL)
-      // const savedMessage = await chatService.saveMessage({
-      //   senderId: socket.user.uid,
-      //   conversationId: data.chatId,
-      //   content: data.content
-      // });
-      
-      // אובייקט זמני עד שנחבר את מסד הנתונים
-      const messagePayload = {
-        id: 'temp-db-id', // יוחלף ב-ID האמיתי ממסד הנתונים
-        senderId: socket.user.uid,
-        chatId: data.chatId,
-        content: data.content,
-        createdAt: new Date().toISOString()
-      };
+      // שמירה ישירה למסד הנתונים
+      const savedMessage = await chatService.saveMessage(
+        socket.user.uid,
+        data.receiverId,
+        data.chatId,
+        data.content,
+        data.imageUrl || null,
+        data.aspectRatio || null
+      );
 
-      // שידור ההודעה לכל מי שמחובר לחדר הספציפי הזה
-      io.to(`chat:${data.chatId}`).emit('newMessage', messagePayload);
+      // שידור ההודעה לחדר
+      io.to(`chat:${data.chatId}`).emit('newMessage', savedMessage);
 
-      // החזרת אישור קבלה חיובי ל-Flutter כדי שיוריד את אייקון ה"נשלח..." (V בודד)
+      // שליחת משימה לתור ההתראות ב-RabbitMQ (Offline Push Notifications)
+      const channel = getChannel();
+      if (channel) {
+        const pushPayload = {
+          type: 'new_message',
+          chatId: data.chatId,
+          senderId: socket.user.uid,
+          receiverId: data.receiverId,
+          content: data.content,
+          timestamp: new Date().toISOString()
+        };
+        
+        // זריקת המשימה לתור שנקרא 'push'
+        channel.publish('', 'push', Buffer.from(JSON.stringify(pushPayload)));
+      }
+
+      // אישור קבלה חיובי ללקוח (ACK)
       if (typeof callback === 'function') {
-        callback({ status: 'ok', data: messagePayload });
+        callback({ status: 'ok', data: savedMessage });
       }
       
     } catch (error) {
       console.error('Send message error:', error.message);
-      
-      // החזרת שגיאה חזרה לאפליקציה כדי שתציג כפתור "נסה שוב"
       if (typeof callback === 'function') {
         callback({ status: 'error', error: 'Internal server error while saving message' });
       }
@@ -59,7 +65,6 @@ const chatSocket = (io, socket) => {
   });
 
   socket.on('typing', (data) => {
-    // שליחת אירוע "מקליד" לכולם בחדר, חוץ מלמי ששלח את האירוע
     socket.to(`chat:${data.chatId}`).emit('userTyping', {
       userId: socket.user.uid,
       chatId: data.chatId,

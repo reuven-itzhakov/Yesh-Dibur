@@ -2,6 +2,7 @@ const express = require('express');
 const authenticate = require('../../middlewares/auth');
 const validate = require('../../middlewares/validate');
 const groupController = require('../../controllers/groupController');
+const threadController = require('../../controllers/threadController'); // הייבוא החדש
 const { createGroupSchema, inviteSchema } = require('../../validations/groupValidation');
 
 const router = express.Router();
@@ -19,5 +20,8 @@ router.delete('/:id', groupController.deleteGroup);
 router.post('/:id/join', groupController.joinGroup);
 router.post('/:id/leave', groupController.leaveGroup);
 router.post('/:id/invite', validate(inviteSchema), groupController.inviteUser);
+
+// הנתיב החדש: שליפת הפוסטים (אשכולות) תחת קבוצה ספציפית
+router.get('/:id/threads', threadController.getGroupThreads);
 
 module.exports = router;

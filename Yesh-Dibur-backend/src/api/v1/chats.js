@@ -1,25 +1,26 @@
 const express = require('express');
 const authenticate = require('../../middlewares/auth');
+const validate = require('../../middlewares/validate');
+const chatController = require('../../controllers/chatController');
+const { createChatSchema } = require('../../validations/chatValidation');
 
 const router = express.Router();
 
-// Chat routes
 router.use(authenticate);
 
-router.get('/', (req, res) => {
-  // GET /api/v1/chats
-});
+// שליפת רשימת תיבות השיחה (Inbox)
+router.get('/', chatController.getChats);
 
-router.post('/', (req, res) => {
-  // POST /api/v1/chats
-});
+// יצירת תיבת שיחה חדשה מול משתמש אחר
+router.post('/', validate(createChatSchema), chatController.createChat);
 
-router.get('/:id', (req, res) => {
-  // GET /api/v1/chats/:id
-});
+// שליפת היסטוריית ההודעות בתוך שיחה ספציפית
+router.get('/:id/messages', chatController.getChatMessages);
 
-router.delete('/:id', (req, res) => {
-  // DELETE /api/v1/chats/:id
-});
+// אישור בקשת שיחה (העברת הודעות מסטטוס 'ממתין' ל'מאושר')
+router.put('/:id/approve', chatController.approveChat);
+
+// סימון הודעות כנקראו בתוך שיחה ספציפית (איפוס מונה ההתראות)
+router.put('/:id/read', chatController.markAsRead);
 
 module.exports = router;
