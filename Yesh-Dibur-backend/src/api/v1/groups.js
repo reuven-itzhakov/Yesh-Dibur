@@ -1,29 +1,23 @@
 const express = require('express');
 const authenticate = require('../../middlewares/auth');
+const validate = require('../../middlewares/validate');
+const groupController = require('../../controllers/groupController');
+const { createGroupSchema, inviteSchema } = require('../../validations/groupValidation');
 
 const router = express.Router();
 
-// Group routes
+// כל נתיבי הקבוצות דורשים אימות טוקן
 router.use(authenticate);
 
-router.get('/', (req, res) => {
-  // GET /api/v1/groups
-});
+// פעולות ליבה על הקבוצה
+router.post('/', validate(createGroupSchema), groupController.createGroup);
+router.get('/:id', groupController.getGroup);
+router.put('/:id', validate(createGroupSchema.partial()), groupController.updateGroup);
+router.delete('/:id', groupController.deleteGroup);
 
-router.post('/', (req, res) => {
-  // POST /api/v1/groups
-});
-
-router.get('/:id', (req, res) => {
-  // GET /api/v1/groups/:id
-});
-
-router.put('/:id', (req, res) => {
-  // PUT /api/v1/groups/:id
-});
-
-router.delete('/:id', (req, res) => {
-  // DELETE /api/v1/groups/:id
-});
+// פעולות חברתיות של משתמשים מול הקבוצה
+router.post('/:id/join', groupController.joinGroup);
+router.post('/:id/leave', groupController.leaveGroup);
+router.post('/:id/invite', validate(inviteSchema), groupController.inviteUser);
 
 module.exports = router;

@@ -230,6 +230,10 @@ describe('Users API Integration Tests', () => {
     it('should return a public profile without sensitive fields like email and phone', async () => {
       // נכניס משתמש נוסף ל-DB, שאותו המשתמש שלנו ינסה לשלוף
       const targetUserId = 'target_user_456';
+
+      // מחיקת המשתמש במידה והוא נשאר שם מהרצה קודמת
+      await pool.query('DELETE FROM users WHERE id = $1', [targetUserId]);
+
       await pool.query(`
         INSERT INTO users (id, name, email, phone, birth_date, interests, bio) 
         VALUES ($1, $2, $3, $4, $5, $6, $7)
