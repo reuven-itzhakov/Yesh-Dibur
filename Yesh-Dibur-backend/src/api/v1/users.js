@@ -24,8 +24,4 @@ router.get('/badges', authenticate, userController.getBadges);
 // 5. קבוצות שהמשתמש חבר בהן
 router.get('/groups', authenticate, userController.getMyGroups);
 
-// ניהול מכשירים (Push Notifications)
-router.post('/device', validate(deviceSchema), deviceController.registerDevice);
-router.delete('/device', deviceController.removeDevice);
-
 module.exports = router;

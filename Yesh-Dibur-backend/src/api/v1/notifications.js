@@ -8,6 +8,8 @@ router.use(authenticate);
 
 router.get('/', notificationController.getNotifications);
 router.put('/read-all', notificationController.markAllAsRead);
+
+// הסרנו את ה-validate מכאן, הולידציה תתבצע בקונטרולר
 router.put('/:id/read', notificationController.markAsRead);
 
 module.exports = router;

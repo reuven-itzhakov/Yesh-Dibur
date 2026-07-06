@@ -204,5 +204,84 @@ describe('Search API Integration Tests', () => {
       expect(user).not.toHaveProperty('phone');
       expect(user).not.toHaveProperty('location');
     });
+
+        it('should paginate correctly using the page parameter (Offset)', async () => {
+      // נבקש רק משתמש אחד בעמוד הראשון
+      const page1 = await request(app).get('/api/v1/search?type=users&limit=1&page=1');
+      expect(page1.statusCode).toBe(200);
+      expect(page1.body.data.users.length).toBe(1);
+      const firstUser = page1.body.data.users[0].name;
+
+      // נבקש את העמוד השני
+      const page2 = await request(app).get('/api/v1/search?type=users&limit=1&page=2');
+      expect(page2.statusCode).toBe(200);
+      expect(page2.body.data.users.length).toBeLessThanOrEqual(1);
+      
+      // נוודא שהמשתמש מהעמוד הראשון לא מופיע בעמוד השני
+      if (page2.body.data.users.length > 0) {
+        expect(page2.body.data.users[0].name).not.toBe(firstUser);
+      }
+    });
+
+    it('should use the user\'s saved location if lat/lng are not provided', async () => {
+      // הקטין הראשון (minorUser1) יושב בתל אביב (34.78, 32.08)
+      // נחפש רדיוס 5 ק"מ בלי לשלוח קואורדינטות
+      const response = await request(app).get('/api/v1/search?type=users&radius_km=5');
+      
+      expect(response.statusCode).toBe(200);
+      const userNames = response.body.data.users.map(u => u.name);
+      
+      // הוא אמור למצוא את דניאל (שנמצא במרחק קצר ממנו) למרות שלא שלחנו מיקום מדויק ב-URL
+      expect(userNames).toContain('דניאל'); 
+      
+      const daniel = response.body.data.users.find(u => u.name === 'דניאל');
+      expect(daniel.location_label).toContain('ק"מ'); // חישוב המרחק בוצע בהצלחה
+    });
+
+    it('should handle users without a saved location gracefully', async () => {
+      // ניצור משתמש חדש ללא מיקום
+      const noLocUser = 'no_loc_user';
+      await pool.query(`
+        INSERT INTO users (id, name, email, birth_date, interests) 
+        VALUES ($1, $2, $3, $4, $5)
+      `, [noLocUser, 'ללא מיקום', 'noloc@test.com', getBirthDate(16), ['sports']]);
+
+      // נתחבר דרכו
+      authMiddleware.mockImplementationOnce((req, res, next) => { req.user = { uid: noLocUser }; next(); });
+
+      // נבצע חיפוש כללי
+      const response = await request(app).get('/api/v1/search?type=users');
+      expect(response.statusCode).toBe(200);
+      
+      // נוודא שהחיפוש עבד, אבל התווית מראה שאין מידע על מרחק
+      if (response.body.data.users.length > 0) {
+         expect(response.body.data.users[0].location_label).toBe('מרחק לא ידוע');
+      }
+
+      // מחיקת המשתמש הזמני
+      await pool.query('DELETE FROM users WHERE id = $1', [noLocUser]);
+    });
+
+    it('should allow valid age filtering within the user\'s allowed bounds', async () => {
+      // נתחבר כבגיר (בן 20)
+      authMiddleware.mockImplementationOnce((req, res, next) => { req.user = { uid: adultUser1 }; next(); });
+
+      // הוא מחפש משתמשים בגילאי 21 עד 25
+      const response = await request(app).get('/api/v1/search?type=users&min_age=21&max_age=25');
+      expect(response.statusCode).toBe(200);
+      
+      const userNames = response.body.data.users.map(u => u.name);
+      expect(userNames).toContain('מיכל'); // מיכל בת 22
+      expect(userNames).not.toContain('רונן הבגיר'); // רונן בן 20 ולכן מסונן בגלל ה-min_age
+    });
+
+    it('should return empty results gracefully for non-existent search queries', async () => {
+      // חיפוש ג'יבריש מוחלט
+      const response = await request(app).get('/api/v1/search?q=asdfghjkl123456');
+      
+      expect(response.statusCode).toBe(200);
+      expect(response.body.data.users.length).toBe(0);
+      expect(response.body.data.groups.length).toBe(0);
+    });
   });
 });
