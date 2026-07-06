@@ -5,13 +5,13 @@ const createThreadSchema = z.object({
   content: z.string().min(1, "Post content cannot be empty").max(500, "Post exceeds 500 characters limit"),
   bg_type: z.enum(['image', 'color'], "Background type must be 'image' or 'color'"),
   bg_value: z.string().min(1, "Background value is required"),
-  aspect_ratio: z.number().optional()
+  aspect_ratio: z.number().nullable().optional()
 });
 
 const createCommentSchema = z.object({
   content: z.string().min(1, "Comment cannot be empty").max(500, "Comment exceeds 500 characters limit"),
-  image_url: z.string().url("Invalid image URL").optional(),
-  aspect_ratio: z.number().optional()
+  image_url: z.string().url("Invalid image URL").optional().or(z.literal('')),
+  aspect_ratio: z.number().nullable().optional()
 });
 
 module.exports = {

@@ -3,27 +3,52 @@ const { z } = require('zod');
 const registerSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50),
   email: z.string().email("Invalid email address"),
-  phone: z.string().min(9, "Invalid phone number"), // וולידציה בסיסית למספר טלפון
-  birth_date: z.string().datetime(), // מוודא פורמט ISO תקין (לחישוב קטין/בגיר ברקע)
-  city: z.string().min(2, "City name must be valid"), // לטובת שירות ה-Geocoding
+  phone: z.string().min(9, "Invalid phone number"),
+  birth_date: z.string().datetime(),
+  location: z.object({
+    lat: z.number(),
+    lng: z.number()
+  }).optional(),
   bio: z.string().max(500).optional(),
   instagram_url: z.string().url().optional().or(z.literal('')),
   tiktok_url: z.string().url().optional().or(z.literal('')),
   profile_image_url: z.string().url().optional(),
-  interests: z.array(z.string()).length(5, "You must select exactly 5 interests") // אכיפת ה-5 בדיוק מהאפיון
+  interests: z.array(z.string()).length(5, "You must select exactly 5 interests")
 });
 
 const updateProfileSchema = z.object({
   name: z.string().min(2).max(50).optional(),
-  city: z.string().min(2).optional(),
+  location: z.object({
+    lat: z.number(),
+    lng: z.number()
+  }).optional(),
   bio: z.string().max(500).optional(),
   instagram_url: z.string().url().optional().or(z.literal('')),
   tiktok_url: z.string().url().optional().or(z.literal('')),
   profile_image_url: z.string().url().optional(),
-  interests: z.array(z.string()).length(5, "You must select exactly 5 interests").optional()
+  interests: z.array(z.string()).length(5, "You must select exactly 5 interests").optional(),
+  settings: z.record(z.any()).optional() // מאפשר שמירת אובייקט הגדרות גמיש (JSONB)
+});
+
+const updateLocationSchema = z.object({
+  location: z.object({
+    lat: z.number(),
+    lng: z.number()
+  })
+});
+
+const blockUserSchema = z.object({
+  blocked_id: z.string().min(1, "Blocked ID is required")
+});
+
+const respondInvitationSchema = z.object({
+  status: z.enum(['approved', 'rejected'], "Status must be 'approved' or 'rejected'")
 });
 
 module.exports = {
   registerSchema,
-  updateProfileSchema
+  updateProfileSchema,
+  updateLocationSchema,
+  blockUserSchema,
+  respondInvitationSchema
 };

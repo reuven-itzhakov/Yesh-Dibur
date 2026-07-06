@@ -3,39 +3,61 @@ const { getChannel } = require('../config/rabbitmq');
 
 const threadService = {
   
-  getThread: async (id) => {
+  getThread: async (id, requesterId) => {
     const query = `
-      SELECT t.*, u.name as author_name, u.profile_image_url as author_image
+      SELECT t.*, u.name as author_name, u.profile_image_url as author_image,
+             EXISTS(SELECT 1 FROM thread_likes tl WHERE tl.thread_id = t.id AND tl.user_id = $2) as is_liked
       FROM threads t
       JOIN users u ON t.author_id = u.id
-      WHERE t.id = $1 AND t.deleted_at IS NULL;
+      WHERE t.id = $1 
+        AND t.deleted_at IS NULL
+        AND u.deleted_at IS NULL
+        AND t.author_id NOT IN (
+          SELECT blocked_id FROM blocked_users WHERE blocker_id = $2
+          UNION
+          SELECT blocker_id FROM blocked_users WHERE blocked_id = $2
+        );
     `;
-    const { rows } = await pool.query(query, [id]);
+    const { rows } = await pool.query(query, [id, requesterId]);
     return rows[0];
   },
 
-  getGroupThreads: async (groupId) => {
-    // שליפת הפוסטים של הקבוצה יחד עם פרטי המחבר, מסודרים מהחדש לישן
+  getGroupThreads: async (groupId, requesterId) => {
+    // שליפת הפוסטים של הקבוצה עם סינון מחברים שנמחקו/נחסמו, ובדיקת סטטוס 'לייק'
     const query = `
-      SELECT t.*, u.name as author_name, u.profile_image_url as author_image
+      SELECT t.*, u.name as author_name, u.profile_image_url as author_image,
+             EXISTS(SELECT 1 FROM thread_likes tl WHERE tl.thread_id = t.id AND tl.user_id = $2) as is_liked
       FROM threads t
       JOIN users u ON t.author_id = u.id
-      WHERE t.group_id = $1 AND t.deleted_at IS NULL
+      WHERE t.group_id = $1 
+        AND t.deleted_at IS NULL
+        AND u.deleted_at IS NULL
+        AND t.moderation_status = 'approved'
+        AND t.author_id NOT IN (
+          SELECT blocked_id FROM blocked_users WHERE blocker_id = $2
+          UNION
+          SELECT blocker_id FROM blocked_users WHERE blocked_id = $2
+        )
       ORDER BY t.created_at DESC;
     `;
-    const { rows } = await pool.query(query, [groupId]);
+    const { rows } = await pool.query(query, [groupId, requesterId]);
     return rows;
   },
 
   createThread: async (authorId, data) => {
-    // 1. שמירת הפוסט במסד הנתונים
+
+    // 1. שמירת הפוסט במסד הנתונים - אנו משתמשים ב-SELECT כדי לוודא שהיוצר הוא אכן חבר בקבוצה!
     const query = `
       INSERT INTO threads (group_id, author_id, content, bg_type, bg_value, aspect_ratio, moderation_status)
-      VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+      SELECT $1, $2, $3, $4, $5, $6, 'pending'
+      WHERE EXISTS (SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2)
       RETURNING *;
     `;
     const values = [data.group_id, authorId, data.content, data.bg_type, data.bg_value, data.aspect_ratio || null];
     const { rows } = await pool.query(query, values);
+    
+    // אם לא הוכנסה שורה, המשתמש לא חבר בקבוצה או שהיא לא קיימת
+    if (rows.length === 0) throw new Error('GROUP_NOT_FOUND');
     const newThread = rows[0];
 
     // 2. זריקת משימה לתור הסינון של Gemini (AI Moderation Queue)
@@ -73,6 +95,18 @@ const threadService = {
     try {
       await client.query('BEGIN');
 
+      // בדיקת קיום הפוסט, שהוא לא נמחק, ושהמשתמש חבר בקבוצה שלו (Gatekeeper)
+      const checkThread = await client.query(`
+        SELECT 1 FROM threads t 
+        JOIN group_members gm ON t.group_id = gm.group_id 
+        WHERE t.id = $1 AND gm.user_id = $2 AND t.deleted_at IS NULL
+      `, [threadId, userId]);
+      
+      if (checkThread.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('NOT_AUTHORIZED');
+      }
+
       // בדיקה אם המשתמש כבר עשה לייק בעבר
       const checkQuery = 'SELECT * FROM thread_likes WHERE thread_id = $1 AND user_id = $2';
       const checkRes = await client.query(checkQuery, [threadId, userId]);
@@ -108,15 +142,26 @@ const threadService = {
     }
   },
 
-  getComments: async (threadId) => {
+  getComments: async (threadId, requesterId) => {
     const query = `
       SELECT c.*, u.name as author_name, u.profile_image_url as author_image
       FROM thread_comments c
       JOIN users u ON c.author_id = u.id
-      WHERE c.thread_id = $1 AND c.moderation_status != 'rejected'
+      JOIN threads t ON c.thread_id = t.id
+      JOIN group_members gm ON t.group_id = gm.group_id
+      WHERE c.thread_id = $1 
+        AND gm.user_id = $2 -- שומר סף: רק חברי קבוצה יכולים לקרוא תגובות!
+        AND t.deleted_at IS NULL -- חסימת קריאת תגובות של פוסט מחוק
+        AND c.moderation_status != 'rejected'
+        AND u.deleted_at IS NULL
+        AND c.author_id NOT IN (
+          SELECT blocked_id FROM blocked_users WHERE blocker_id = $2
+          UNION
+          SELECT blocker_id FROM blocked_users WHERE blocked_id = $2
+        )
       ORDER BY c.created_at ASC;
     `;
-    const { rows } = await pool.query(query, [threadId]);
+    const { rows } = await pool.query(query, [threadId, requesterId]);
     return rows;
   },
 
@@ -124,6 +169,18 @@ const threadService = {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // בדיקת חברות בקבוצה שבה נמצא הפוסט (חסימת הזרקת תגובות מבחוץ)
+      const checkGroup = await client.query(`
+        SELECT 1 FROM threads t 
+        JOIN group_members gm ON t.group_id = gm.group_id 
+        WHERE t.id = $1 AND gm.user_id = $2 AND t.deleted_at IS NULL
+      `, [threadId, authorId]);
+      
+      if (checkGroup.rows.length === 0) {
+        await client.query('ROLLBACK');
+        throw new Error('NOT_AUTHORIZED');
+      }
 
       // 1. הוספת התגובה לטבלה
       const insertQuery = `

@@ -16,8 +16,9 @@ const groupController = {
 
   getGroup: async (req, res, next) => {
     try {
-      const group = await groupService.getGroup(req.params.id);
-      if (!group) return res.status(404).json({ error: 'Group not found' });
+      // הוספת ה-UID כדי לאמת הרשאות קריאה ולבדוק חברות
+      const group = await groupService.getGroup(req.params.id, req.user.uid);
+      if (!group) return res.status(404).json({ error: 'Group not found or access denied' });
       res.json(group);
     } catch (error) {
       next(error);
@@ -49,6 +50,9 @@ const groupController = {
       await groupService.joinGroup(req.params.id, req.user.uid);
       res.status(200).json({ message: 'Successfully joined the group' });
     } catch (error) {
+      if (error.message === 'NOT_ALLOWED_TO_JOIN') {
+        return res.status(403).json({ error: 'Cannot join group due to privacy, age restrictions, or already a member' });
+      }
       next(error);
     }
   },
@@ -70,6 +74,9 @@ const groupController = {
       await groupService.inviteUser(req.user.uid, req.body.invitee_id, req.params.id);
       res.status(201).json({ message: 'Invitation sent successfully' });
     } catch (error) {
+      if (error.message === 'NOT_A_MEMBER') return res.status(403).json({ error: 'You must be a member to invite others' });
+      if (error.message === 'ALREADY_A_MEMBER') return res.status(400).json({ error: 'User is already a member of this group' });
+      if (error.message === 'INVITATION_BLOCKED') return res.status(403).json({ error: 'Cannot invite this user due to privacy settings or existing pending invitation' });
       next(error);
     }
   }
