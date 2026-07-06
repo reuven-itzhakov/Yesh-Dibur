@@ -3,7 +3,12 @@ const chatService = require('../services/chatService');
 const chatController = {
   getChats: async (req, res, next) => {
     try {
-      const chats = await chatService.getUserChats(req.user.uid);
+      // עימוד תיבות השיחה (Inbox) למניעת קריסה של שרת ה-Node וזיכרון האפליקציה
+      const page = Math.max(parseInt(req.query.page) || 1, 1);
+      const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 50);
+      const offset = (page - 1) * limit;
+
+      const chats = await chatService.getUserChats(req.user.uid, limit, offset);
       res.json(chats);
     } catch (error) {
       next(error);
@@ -15,9 +20,11 @@ const chatController = {
       const chat = await chatService.createConversation(req.user.uid, req.body.receiver_id);
       res.status(201).json(chat);
     } catch (error) {
-      // טיפול במקרה קצה שבו משתמש מנסה לפתוח שיחה עם עצמו
       if (error.message === 'CANNOT_CHAT_WITH_SELF') {
         return res.status(400).json({ error: 'You cannot create a chat with yourself.' });
+      }
+      if (error.message === 'NOT_ALLOWED') {
+        return res.status(403).json({ error: 'Cannot open chat due to privacy settings or age restrictions.' });
       }
       next(error);
     }
@@ -25,7 +32,12 @@ const chatController = {
 
   getChatMessages: async (req, res, next) => {
     try {
-      const messages = await chatService.getChatMessages(req.params.id, req.user.uid);
+      // אכיפת עימוד (Pagination) כדי למנוע קריסת שרת
+      const page = Math.max(parseInt(req.query.page) || 1, 1);
+      const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 50);
+      const offset = (page - 1) * limit;
+
+      const messages = await chatService.getChatMessages(req.params.id, req.user.uid, limit, offset);
       res.json(messages);
     } catch (error) {
       if (error.message === 'UNAUTHORIZED_ACCESS') {
