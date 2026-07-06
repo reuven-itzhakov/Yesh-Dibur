@@ -20,16 +20,19 @@ const threadController = {
 
   getGroupThreads: async (req, res, next) => {
     try {
-      // 1. שומר סף (Gatekeeper): נוודא שלמשתמש מותר בכלל לראות את הקבוצה הזו (הגנת גילאים וחסימות)
-      const groupService = require('../services/groupService'); // ייבוא פנימי למניעת מעגל תלויות
+      const groupService = require('../services/groupService'); 
       const groupCheck = await groupService.getGroup(req.params.id, req.user.uid);
       
       if (!groupCheck) {
-        return res.status(403).json({ error: 'Access denied to group content (privacy or age restrictions)' });
+        return res.status(403).json({ error: 'Access denied to group content' });
       }
 
-      // 2. רק אם עברנו את חומת האבטחה, נשלוף את הפוסטים
-      const threads = await threadService.getGroupThreads(req.params.id, req.user.uid);
+      // אכיפת עימוד (Pagination) למניעת קריסת שרת בקבוצות גדולות
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50); // מקסימום אבטחה של 50 פריטים
+      const offset = (page - 1) * limit;
+
+      const threads = await threadService.getGroupThreads(req.params.id, req.user.uid, limit, offset);
       res.json(threads);
     } catch (error) {
       next(error);
@@ -72,8 +75,12 @@ const threadController = {
 
   getComments: async (req, res, next) => {
     try {
-      // חובה להעביר את מזהה המשתמש המבקש כדי לסנן תגובות של אנשים חסומים
-      const comments = await threadService.getComments(req.params.id, req.user.uid);
+      // אכיפת עימוד גם לשליפת התגובות
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50);
+      const offset = (page - 1) * limit;
+
+      const comments = await threadService.getComments(req.params.id, req.user.uid, limit, offset);
       res.json(comments);
     } catch (error) {
       next(error);
