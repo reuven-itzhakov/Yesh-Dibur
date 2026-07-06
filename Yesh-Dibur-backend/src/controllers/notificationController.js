@@ -5,9 +5,13 @@ const notificationController = {
   getNotifications: async (req, res, next) => {
     try {
       const { page, limit } = notificationPaginationSchema.parse(req.query);
-      const offset = (page - 1) * limit;
+      
+      // הגנת קריסת שרת מ-Offset שלילי (page=0) ומשיכת יתר (Memory Leak)
+      const safePage = Math.max(page, 1);
+      const safeLimit = Math.min(limit, 50);
+      const offset = (safePage - 1) * safeLimit;
 
-      const notifications = await notificationService.getNotifications(req.user.uid, limit, offset);
+      const notifications = await notificationService.getNotifications(req.user.uid, safeLimit, offset);
       res.json(notifications);
     } catch (error) {
       next(error); 

@@ -145,7 +145,17 @@ getPublicUser: async (id, requesterId) => {
   getUnreadCounts: async (uid) => {
     const query = `
       SELECT 
-        (SELECT COUNT(*) FROM notifications WHERE user_id = $1 AND is_read = FALSE) as unread_notifications,
+        (SELECT COUNT(*) FROM notifications n 
+         LEFT JOIN users u ON n.sender_id = u.id 
+         WHERE n.user_id = $1 
+           AND n.is_read = FALSE
+           AND (n.sender_id IS NULL OR u.deleted_at IS NULL)
+           AND (n.sender_id IS NULL OR n.sender_id NOT IN (
+             SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
+             UNION
+             SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
+           ))
+        ) as unread_notifications,
         (SELECT COUNT(*) FROM messages WHERE receiver_id = $1 AND status IN ('approved', 'pending_approval')) as unread_messages
     `;
     const { rows } = await pool.query(query, [uid]);
