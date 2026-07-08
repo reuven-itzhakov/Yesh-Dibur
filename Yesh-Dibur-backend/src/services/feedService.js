@@ -8,7 +8,7 @@ const feedService = {
       SELECT 
         t.id, t.content, t.bg_type, t.bg_value, t.aspect_ratio, t.likes_count, t.comments_count, t.created_at,
         u.id as author_id, u.name as author_name, u.profile_image_url as author_image,
-        g.id as group_id, g.name as group_name,
+        g.id as group_id, g.name as group_name, g.image_url as group_image, -- תוספת חיונית לאפליקציה: חיווי תמונת הקבוצה
         EXISTS(SELECT 1 FROM thread_likes tl WHERE tl.thread_id = t.id AND tl.user_id = $1) as is_liked
       FROM threads t
       JOIN users u ON t.author_id = u.id
@@ -17,12 +17,19 @@ const feedService = {
       WHERE gm.user_id = $1 
         AND u.deleted_at IS NULL
         AND t.deleted_at IS NULL
-        AND t.moderation_status = 'approved'
-        -- סינון משתמשים חסומים (הדדי)
+        AND g.deleted_at IS NULL 
+        AND (t.moderation_status = 'approved' OR (t.author_id = $1 AND t.moderation_status = 'pending')) 
+        -- סינון משתמשים חסומים (הדדי מול כותב הפוסט)
         AND t.author_id NOT IN (
           SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
           UNION
-          SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
+          SELECT blocked_id FROM blocked_users WHERE blocked_id = $1
+        )
+        -- אטימת פרצה: סינון קבוצות שמנהלן חסם אותך (או שחסמת אותו) אחרי שכבר הצטרפת!
+        AND g.admin_id NOT IN (
+          SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
+          UNION
+          SELECT blocked_id FROM blocked_users WHERE blocked_id = $1
         )
     `;
 
@@ -61,7 +68,7 @@ const feedService = {
       SELECT 
         t.id, t.content, t.bg_type, t.bg_value, t.aspect_ratio, t.likes_count, t.comments_count, t.created_at,
         u.id as author_id, u.name as author_name, u.profile_image_url as author_image,
-        g.id as group_id, g.name as group_name,
+        g.id as group_id, g.name as group_name, g.image_url as group_image, -- תוספת חיונית לאפליקציה
         EXISTS(SELECT 1 FROM thread_likes tl WHERE tl.thread_id = t.id AND tl.user_id = $1) as is_liked
     `;
     
@@ -77,12 +84,26 @@ const feedService = {
       JOIN groups g ON t.group_id = g.id
       WHERE t.deleted_at IS NULL
         AND u.deleted_at IS NULL
-        AND t.moderation_status = 'approved'
-        -- סינון משתמשים חסומים (הדדי)
+        AND g.deleted_at IS NULL
+        AND t.moderation_status = 'approved' -- בפיד ציבורי מציגים אך ורק פוסטים שאושרו סופית
+        AND g.is_private = FALSE -- אטימת פרטיות: רק קבוצות ציבוריות
+        AND NOT EXISTS (SELECT 1 FROM group_members WHERE group_id = g.id AND user_id = $1) -- אטימת באג הכפילות: הסתרת קבוצות שאתה כבר חבר בהן כדי לגלות רק תוכן חדש!
+        -- חומת הפרדת הגילאים (מניעת חשיפת תוכן מבוגרים לקטינים בפיד הציבורי ולהיפך)
+        AND (
+          (EXTRACT(YEAR FROM age((SELECT birth_date FROM users WHERE id = $1))) < 18 AND EXTRACT(YEAR FROM age(u.birth_date)) < 18)
+          OR
+          (EXTRACT(YEAR FROM age((SELECT birth_date FROM users WHERE id = $1))) >= 18 AND EXTRACT(YEAR FROM age(u.birth_date)) >= 18)
+        )
+        -- סינון חסימות (הדדי מול כותב הפוסט ומול מנהל הקבוצה)
         AND t.author_id NOT IN (
           SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
           UNION
-          SELECT blocker_id FROM blocked_users WHERE blocked_id = $1
+          SELECT blocked_id FROM blocked_users WHERE blocked_id = $1
+        )
+        AND g.admin_id NOT IN (
+          SELECT blocked_id FROM blocked_users WHERE blocker_id = $1
+          UNION
+          SELECT blocked_id FROM blocked_users WHERE blocked_id = $1
         )
     `;
 
@@ -97,7 +118,8 @@ const feedService = {
     }
 
     if (user.interests && user.interests.length > 0) {
-      query += ` AND g.interests && $${paramIndex}`;
+      // אטימת באג ההעלמה: קבוצה שאין לה עדיין תגיות (NULL) לא תוחרג מהאלגוריתם!
+      query += ` AND (g.interests IS NULL OR g.interests && $${paramIndex})`;
       values.push(user.interests);
       paramIndex++;
     }

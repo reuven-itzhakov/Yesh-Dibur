@@ -60,6 +60,7 @@ CREATE TABLE groups (
     cover_image_url TEXT,
     interests TEXT[],
     admin_id VARCHAR(128) REFERENCES users(id) ON DELETE RESTRICT,
+    is_private BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

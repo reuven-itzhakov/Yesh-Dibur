@@ -5,14 +5,15 @@ const feedController = {
   getDiscoveryFeed: async (req, res, next) => {
     try {
       const parsed = feedPaginationSchema.safeParse(req.query);
-      if (!parsed.success) {
-        return res.status(400).json({ error: parsed.error.errors });
-      }
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
       
       let { cursor, limit, radius_km } = parsed.data; 
+      // אטימת קריסת שרת (DoS) במקרה של שליחת limit=0 שיגרום למערך לפנות לאינדקס שלילי
+      limit = Math.max(Math.min(limit, 50), 1); 
       
-      // המרת המחרוזת לאובייקט Date כדי למנוע בעיות אזור זמן ודיוק מול PostgreSQL
-      if (cursor) cursor = new Date(cursor);
+      // אטימת קריסת Invalid Date (טיפול במחרוזת ריקה מצד הלקוח)
+      if (cursor && cursor.trim() !== '') cursor = new Date(cursor);
+      else cursor = null; 
 
       const feedData = await feedService.getDiscoveryFeed(req.user.uid, cursor, limit, radius_km);
       res.json(feedData);
@@ -24,14 +25,15 @@ const feedController = {
   getMyGroupsFeed: async (req, res, next) => {
     try {
       const parsed = feedPaginationSchema.safeParse(req.query);
-      if (!parsed.success) {
-        return res.status(400).json({ error: parsed.error.errors });
-      }
+      if (!parsed.success) return res.status(400).json({ error: parsed.error.errors });
 
       let { cursor, limit } = parsed.data; 
+      // אטימת קריסת שרת (DoS)
+      limit = Math.max(Math.min(limit, 50), 1); 
       
-      // המרת המחרוזת לאובייקט Date כדי למנוע בעיות אזור זמן ודיוק מול PostgreSQL
-      if (cursor) cursor = new Date(cursor);
+      // אטימת קריסת Invalid Date
+      if (cursor && cursor.trim() !== '') cursor = new Date(cursor);
+      else cursor = null;
 
       const feedData = await feedService.getMyGroupsFeed(req.user.uid, cursor, limit);
       res.json(feedData);

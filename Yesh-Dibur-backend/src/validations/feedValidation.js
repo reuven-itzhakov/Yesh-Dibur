@@ -1,14 +1,10 @@
 const { z } = require('zod');
 
 const feedPaginationSchema = z.object({
-  // הסמן הוא למעשה חותמת הזמן של הפוסט האחרון שהמשתמש ראה
-  cursor: z.string().datetime().optional(), 
-  
-  // הגבלת כמות הפריטים, ברירת מחדל 20 לפי האפיון
-  limit: z.string().regex(/^\d+$/).transform(Number).default('20'), 
-  
-  // רדיוס החיפוש בקילומטרים (ברירת מחדל 10 ק"מ)
-  radius_km: z.string().regex(/^\d+$/).transform(Number).default('10').optional()
+  // תמיכה במחרוזת ריקה מהאפליקציה בטעינה ראשונה
+  cursor: z.string().datetime().optional().or(z.literal('')), 
+  limit: z.string().regex(/^\d+$/).optional().or(z.literal('')).transform(val => (!val ? 20 : Number(val))), 
+  radius_km: z.string().regex(/^\d+$/).optional().or(z.literal('')).transform(val => (!val ? 10 : Number(val)))
 });
 
 module.exports = {
