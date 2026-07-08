@@ -4,7 +4,11 @@ const validate = (schema) => (req, res, next) => {
     req.body = schema.parse(req.body);
     next();
   } catch (error) {
-    // מעביר את השגיאה (שתזוהה כ-ZodError) לטיפול השגיאות הגלובלי שלנו
+    // אטימת מיסוך שגיאות: אם השגיאה היא שגיאת וולידציה של Zod, נחזיר 400 מסודר למפתח הלקוח
+    if (error.name === 'ZodError') {
+      return res.status(400).json({ error: error.errors });
+    }
+    // אם זו שגיאת שרת אחרת, נעביר אותה הלאה
     next(error); 
   }
 };

@@ -8,11 +8,16 @@ const authenticate = async (req, res, next) => {
   }
 
   try {
-    const decodedToken = await auth.verifyIdToken(token);
+    // אטימת פרצת משתמשי הרפאים (Zombie Users):
+    // הוספת 'true' מכריחה את השרת לוודא שהטוקן לא בוטל, ושהמשתמש לא נמחק או נחסם ב-Firebase!
+    const decodedToken = await auth.verifyIdToken(token, true);
     req.user = decodedToken;
     next();
   } catch (error) {
-    return res.status(401).json({ error: 'Invalid token' });
+    if (error.code === 'auth/id-token-revoked') {
+      return res.status(401).json({ error: 'Token has been revoked. Please reauthenticate.' });
+    }
+    return res.status(401).json({ error: 'Invalid or expired token' });
   }
 };
 
