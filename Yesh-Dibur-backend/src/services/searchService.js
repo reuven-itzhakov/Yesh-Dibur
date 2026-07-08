@@ -9,7 +9,7 @@ const searchService = {
     const uRes = await pool.query('SELECT location, EXTRACT(YEAR FROM age(birth_date)) as age FROM users WHERE id = $1', [uid]);
     const userLoc = uRes.rows[0]?.location;
     const userAge = parseInt(uRes.rows[0]?.age, 10);
-    const isMinor = userAge < 18;
+    const isMinor = userAge < 18 || isNaN(userAge);
 
     // 1. חסימה אבסולוטית של גילאים (API Age Hacking Protection)
     let safeMinAge = min_age || null;
@@ -24,7 +24,9 @@ const searchService = {
     }
 
     const results = {};
-    const interestsArray = interests ? interests.split(',').map(i => i.trim()) : null;
+    // מניעת באג חיפוש ריק (אם נשלחים רק פסיקים, המערך יקרוס את החיפוש ל-0 תוצאות)
+    const rawInterests = interests ? interests.split(',').map(i => i.trim()).filter(i => i !== '') : [];
+    const interestsArray = rawInterests.length > 0 ? rawInterests : null;
 
     let tsQuery = null;
     if (q) {
@@ -74,12 +76,12 @@ const searchService = {
         uSelect += `, NULL as distance_km`;
       }
 
-      // חיפוש טקסטואלי + דירוג רלוונטיות
+      // חיפוש טקסטואלי + דירוג רלוונטיות (שימוש ב-COALESCE למניעת קריסת מסד הנתונים)
       if (tsQuery) {
-        uSelect += `, ts_rank(to_tsvector('simple', name || ' ' || COALESCE(bio, '')), to_tsquery('simple', $${uIdx})) as rank`;
-        uFromWhere += ` AND to_tsvector('simple', name || ' ' || COALESCE(bio, '')) @@ to_tsquery('simple', $${uIdx})`;
+        uSelect += `, ts_rank(to_tsvector('simple', COALESCE(name, '') || ' ' || COALESCE(bio, '')), to_tsquery('simple', $${uIdx})) as rank`;
+        uFromWhere += ` AND to_tsvector('simple', COALESCE(name, '') || ' ' || COALESCE(bio, '')) @@ to_tsquery('simple', $${uIdx})`;
         uValues.push(tsQuery);
-        orderClauses.unshift(`rank DESC`); // דירוג 1: התאמה מדויקת לטקסט
+        orderClauses.unshift(`rank DESC`);
         uIdx++;
       }
 
@@ -127,14 +129,16 @@ const searchService = {
     // --- חיפוש קבוצות ---
     if (type === 'groups' || type === 'all') {
       let gSelect = `
-        SELECT g.id, g.name, g.description, g.cover_image_url, g.interests,
-               (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) as members_count,
+        SELECT g.id, g.name, g.description, g.image_url as group_image, g.is_private, g.interests,
+               (SELECT COUNT(*) FROM group_members gm JOIN users u_mem ON gm.user_id = u_mem.id WHERE gm.group_id = g.id AND u_mem.deleted_at IS NULL) as members_count,
                EXISTS(SELECT 1 FROM group_members WHERE group_id = g.id AND user_id = $1) as is_member
       `;
       let gFromWhere = `
         FROM groups g
         JOIN users u ON g.admin_id = u.id
         WHERE u.deleted_at IS NULL 
+          AND g.deleted_at IS NULL -- אטימת פרצה: חסימת קבוצות רפאים מחוקות
+          AND (g.is_private = FALSE OR EXISTS (SELECT 1 FROM group_members WHERE group_id = g.id AND user_id = $1)) -- אטימת פרצה: הסתרת קבוצות פרטיות בחיפוש!
           AND g.admin_id NOT IN (${blockedSubquery})
       `;
       
