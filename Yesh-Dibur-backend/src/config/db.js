@@ -5,7 +5,17 @@ const pool = new Pool({
   host: process.env.POSTGRES_HOST,
   database: process.env.POSTGRES_DB,
   password: process.env.POSTGRES_PASSWORD,
-  port: process.env.POSTGRES_PORT || 5432
+  port: process.env.POSTGRES_PORT || 5432,
+  // אטימת קריסות שרת: ניהול חכם של עומסים ומשאבים (Connection Pooling)
+  max: 50, // מקסימום 50 חיבורים מקבילים כדי לא להחניק את מסד הנתונים
+  idleTimeoutMillis: 30000, // ניתוק חיבורים שלא היו בשימוש חצי דקה כדי לשחרר זיכרון
+  connectionTimeoutMillis: 5000 // ביטול ניסיונות חיבור שנתקעו מעל 5 שניות
+});
+
+// אטימת קריסת שרת פתאומית: טיפול בניתוקים של חיבורי מסד נתונים שממתינים ברקע
+pool.on('error', (err, client) => {
+  console.error('Unexpected error on idle PostgreSQL client:', err.message);
+  process.exit(-1); // יגרום ל-Docker או PM2 להרים את השרת מחדש עם חיבורים טריים
 });
 
 const connectDB = async () => {

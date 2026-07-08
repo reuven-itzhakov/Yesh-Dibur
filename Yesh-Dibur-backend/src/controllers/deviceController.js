@@ -13,11 +13,15 @@ const deviceController = {
 
   removeDevice: async (req, res, next) => {
     try {
-      // הנחה שהאפליקציה שולחת את מזהה המכשיר כפרמטר בשאילתה בזמן התנתקות
-      const deviceId = req.query.device_id; 
-      if (!deviceId) return res.status(400).json({ error: 'Device ID is required' });
+      // חסימת קריסת שרת במקרה של שליחת מערך בשורת הכתובת (Query Array Injection)
+      let deviceId = req.query.device_id; 
+      if (Array.isArray(deviceId)) deviceId = deviceId[0];
       
-      await deviceService.deleteDevice(req.user.uid, deviceId);
+      if (!deviceId || typeof deviceId !== 'string' || deviceId.trim() === '') {
+        return res.status(400).json({ error: 'Valid Device ID is required' });
+      }
+      
+      await deviceService.deleteDevice(req.user.uid, deviceId.trim());
       res.status(204).send();
     } catch (error) {
       next(error);
