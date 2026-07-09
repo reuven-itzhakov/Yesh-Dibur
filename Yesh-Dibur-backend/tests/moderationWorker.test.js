@@ -1,8 +1,4 @@
 // tests/moderationWorker.test.js
-const moderationWorker = require('../src/workers/moderationWorker');
-const { getChannel } = require('../src/config/rabbitmq');
-const { pool } = require('../src/config/db');
-const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 // 1. Mocks לתשתיות הליבה
 jest.mock('../src/config/rabbitmq', () => ({
@@ -13,17 +9,26 @@ jest.mock('../src/config/db', () => ({
   pool: { query: jest.fn() }
 }));
 
-// 2. Mock מתקדם לספרייה של Google Gemini
-const mockGenerateContent = jest.fn();
+// 2. Mock מתקדם לספרייה של Google Gemini שפותר את בעיית ה-Hoisting של Jest
 jest.mock('@google/generative-ai', () => {
+  const mockGenerate = jest.fn(); // יצירת הפונקציה בתוך הסקופ הסגור
+  
   return {
     GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
       getGenerativeModel: jest.fn().mockReturnValue({
-        generateContent: mockGenerateContent
+        generateContent: mockGenerate
       })
-    }))
+    })),
+    // חשיפת הפונקציה החוצה כדי שנוכל לשלוט בה ולבדוק אותה בטסטים
+    mockGenerateContent: mockGenerate 
   };
 });
+
+// ייבוא הקבצים: חשוב לייבא אותם רק *אחרי* שה-Mocks הוגדרו למעלה!
+const moderationWorker = require('../src/workers/moderationWorker');
+const { getChannel } = require('../src/config/rabbitmq');
+const { pool } = require('../src/config/db');
+const { mockGenerateContent } = require('@google/generative-ai');
 
 describe('AI Moderation Worker (moderationWorker.js)', () => {
   let mockChannel;
@@ -81,7 +86,7 @@ describe('AI Moderation Worker (moderationWorker.js)', () => {
     });
 
     it('should approve content and update DB successfully', async () => {
-      // דימוי תשובה חיובית מ-Gemini (כולל דימוי של סימוני markdown)
+      // דימוי תשובה חיובית מ-Gemini
       mockGenerateContent.mockResolvedValueOnce({
         response: {
           text: () => '{"status": "approved"}'
@@ -105,7 +110,7 @@ describe('AI Moderation Worker (moderationWorker.js)', () => {
     });
 
     it('should reject inappropriate content and update DB', async () => {
-      // דימוי תשובה שלילית מ-Gemini (ללא markdown)
+      // דימוי תשובה שלילית מ-Gemini
       mockGenerateContent.mockResolvedValueOnce({
         response: {
           text: () => '{"status": "rejected", "reason": "Contains hate speech"}'
