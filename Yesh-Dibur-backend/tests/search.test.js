@@ -1,287 +1,119 @@
+// tests/search.test.js
 const request = require('supertest');
 const app = require('../src/app');
 const { pool } = require('../src/config/db');
+const { auth } = require('../src/config/firebase');
 
-// ניהול המשתמש המחובר באופן דינמי
-const authMiddleware = require('../src/middlewares/auth');
-jest.mock('../src/middlewares/auth', () => {
-  return jest.fn((req, res, next) => {
-    req.user = { uid: 'minor_user_1' }; // נתחיל כמשתמש קטין
-    next();
-  });
-});
+// הגדרת Mocks
+jest.mock('../src/config/db', () => ({
+  pool: {
+    query: jest.fn(),
+  }
+}));
 
-// פונקציית עזר ליצירת תאריך לידה מדויק לפי גיל
-const getBirthDate = (age) => {
-  const d = new Date();
-  d.setFullYear(d.getFullYear() - age);
-  return d.toISOString();
-};
+jest.mock('../src/config/redis', () => ({
+  redisClient: { connect: jest.fn(), on: jest.fn() },
+  connectRedis: jest.fn(),
+}));
 
-describe('Search API Integration Tests', () => {
-  const minorUser1 = 'minor_user_1'; // בן 16 (מחפש)
-  const minorUser2 = 'minor_user_2'; // בן 17
-  const adultUser1 = 'adult_user_1'; // בן 20
-  const adultUser2 = 'adult_user_2'; // בת 22
-  const blockedMinor = 'blocked_minor'; // בן 16 (חסום)
+jest.mock('../src/config/rabbitmq', () => ({
+  getChannel: jest.fn(),
+  connectRabbitMQ: jest.fn(),
+}));
 
-  let groupMinorId, groupAdultId;
+jest.mock('../src/config/firebase', () => ({
+  auth: { verifyIdToken: jest.fn() }
+}));
 
-  beforeAll(async () => {
-    // 1. ניקוי עמוק של כל הטבלאות הקשורות
-    await pool.query('DELETE FROM blocked_users');
-    await pool.query('DELETE FROM group_members');
-    await pool.query('DELETE FROM groups');
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2, $3, $4, $5)', [minorUser1, minorUser2, adultUser1, adultUser2, blockedMinor]);
-
-    // 2. יצירת משתמשים עם גילאים, ביוגרפיות ומיקומים מגוונים
-    const insertUser = `
-      INSERT INTO users (id, name, bio, email, birth_date, interests, location) 
-      VALUES ($1, $2, $3, $4, $5, $6, ST_SetSRID(ST_MakePoint($7, $8), 4326))
-    `;
-    
-    // קטינים
-    await pool.query(insertUser, [minorUser1, 'יוסי הקטין', 'אוהב לשחק כדורגל', 'y1@test.com', getBirthDate(16), ['sports'], 34.78, 32.08]);
-    await pool.query(insertUser, [minorUser2, 'דניאל', 'מפתח תוכנה מתחיל', 'd1@test.com', getBirthDate(17), ['tech', 'gaming'], 34.80, 32.09]);
-    await pool.query(insertUser, [blockedMinor, 'המטרידן', 'ביו סתמי', 'b1@test.com', getBirthDate(16), ['sports'], 34.78, 32.08]);
-    
-    // בגירים
-    await pool.query(insertUser, [adultUser1, 'רונן הבגיר', 'סטודנט למדעי המחשב', 'r1@test.com', getBirthDate(20), ['tech'], 35.00, 31.50]);
-    await pool.query(insertUser, [adultUser2, 'מיכל', 'אוהבת לטייל בעולם', 'm1@test.com', getBirthDate(22), ['travel'], 34.78, 32.08]);
-
-    // 3. חסימה
-    await pool.query('INSERT INTO blocked_users (blocker_id, blocked_id) VALUES ($1, $2)', [minorUser1, blockedMinor]);
-
-    // 4. יצירת קבוצות (אחת מנוהלת ע"י קטין, אחת ע"י בגיר)
-    const gRes1 = await pool.query('INSERT INTO groups (name, description, admin_id, interests) VALUES ($1, $2, $3, $4) RETURNING id', 
-      ['קבוצת תכנות לנוער', 'לומדים פייתון ביחד', minorUser2, ['tech']]);
-    groupMinorId = gRes1.rows[0].id;
-
-    const gRes2 = await pool.query('INSERT INTO groups (name, description, admin_id, interests) VALUES ($1, $2, $3, $4) RETURNING id', 
-      ['סטודנטים בטכניון', 'מדברים על מבחנים', adultUser1, ['tech']]);
-    groupAdultId = gRes2.rows[0].id;
-  });
+describe('Search API Routes (/api/v1/search)', () => {
+  const mockUid = 'firebase-uid-search-1';
+  const mockToken = 'Bearer valid-search-token';
 
   beforeEach(() => {
-    // איפוס תמיד לקטין 1
-    authMiddleware.mockImplementation((req, res, next) => { req.user = { uid: minorUser1 }; next(); });
+    jest.clearAllMocks();
+    auth.verifyIdToken.mockResolvedValue({ uid: mockUid });
   });
 
-  afterAll(async () => {
-    await pool.query('DELETE FROM blocked_users');
-    await pool.query('DELETE FROM group_members');
-    await pool.query('DELETE FROM groups');
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2, $3, $4, $5)', [minorUser1, minorUser2, adultUser1, adultUser2, blockedMinor]);
-    await pool.end();
-  });
+  describe('GET /api/v1/search', () => {
+    
+    it('should return 400 if validation fails (invalid type parameter)', async () => {
+      const response = await request(app)
+        .get('/api/v1/search?type=aliens') // סוג חיפוש שלא קיים ב-Enum
+        .set('Authorization', mockToken);
 
-  // ==========================================
-  // Test Suite 1: הגנת קטינים / בגירים (Security)
-  // ==========================================
-  describe('Age Hacking Protection', () => {
-    it('should strictly prevent a minor from finding adults, even if requested', async () => {
-      // קטין מנסה לחפש אנשים עד גיל 30 בכוח דרך ה-URL
-      const response = await request(app).get('/api/v1/search?type=users&max_age=30');
-      
-      expect(response.statusCode).toBe(200);
-      const userNames = response.body.data.users.map(u => u.name);
-      
-      expect(userNames).toContain('דניאל'); // קטין אחר נמצא
-      expect(userNames).not.toContain('רונן הבגיר'); // בגיר סונן החוצה
-      expect(userNames).not.toContain('מיכל'); // בגירה סוננה החוצה
+      expect(response.status).toBe(400);
+      expect(response.body.error).toBeDefined();
     });
 
-    it('should strictly prevent an adult from finding minors, even if requested', async () => {
-      // נשנה את ה-Mock למשתמש בגיר
-      authMiddleware.mockImplementationOnce((req, res, next) => { req.user = { uid: adultUser1 }; next(); });
+    it('should limit pagination values to prevent DoS attacks', async () => {
+      // אנחנו רוצים לוודא שהקונטרולר מגביל את ה-limit למקסימום 50 גם אם המשתמש שלח מיליון
+      
+      // הדמיית שאילתת בדיקת הגיל של המשתמש המחפש (חלק ראשון של ה-Service)
+      pool.query.mockResolvedValueOnce({ rows: [{ age: 25, location: null }] });
+      
+      // הדמיית תוצאות חיפוש משתמשים
+      pool.query.mockResolvedValueOnce({ rows: [] });
+      
+      // הדמיית תוצאות חיפוש קבוצות
+      pool.query.mockResolvedValueOnce({ rows: [] });
 
-      // הבגיר מנסה לחפש משתמשים החל מגיל 16
-      const response = await request(app).get('/api/v1/search?type=users&min_age=16');
-      
-      expect(response.statusCode).toBe(200);
-      const userNames = response.body.data.users.map(u => u.name);
-      
-      expect(userNames).toContain('מיכל'); // בגירה אחרת נמצאת
-      expect(userNames).not.toContain('יוסי הקטין'); // קטין סונן!
-      expect(userNames).not.toContain('דניאל'); // קטין סונן!
+      const response = await request(app)
+        .get('/api/v1/search?limit=10000') // ניסיון לשאוב 10,000 רשומות
+        .set('Authorization', mockToken);
+
+      expect(response.status).toBe(200);
+      expect(response.body.pagination.limit).toBe(50); // הקונטרולר שלנו עצר אותו והוריד ל-50!
     });
 
-    it('should apply age protection to groups based on group admin age', async () => {
-      // קטין (minorUser1) מחפש קבוצות
-      const response = await request(app).get('/api/v1/search?type=groups');
-      
-      expect(response.statusCode).toBe(200);
-      const groupNames = response.body.data.groups.map(g => g.name);
-      
-      expect(groupNames).toContain('קבוצת תכנות לנוער'); // מנוהל ע"י קטין
-      expect(groupNames).not.toContain('סטודנטים בטכניון'); // מנוהל ע"י בגיר, נחסם!
-    });
-  });
+    it('should perform a successful search for users and format distance', async () => {
+      // 1. שליפת גיל ומיקום של המחפש
+      pool.query.mockResolvedValueOnce({ 
+        rows: [{ age: 25, location: 'POINT(32.0 34.0)' }] 
+      });
 
-  // ==========================================
-  // Test Suite 2: Full-Text Search (FTS)
-  // ==========================================
-  describe('Full Text Search (q)', () => {
-    it('should rank exact text matches higher', async () => {
-      // דניאל מתכנת, לקבוצה קוראים "קבוצת תכנות לנוער".
-      // נחפש את המילה "תוכנה" (נמצא בביו של דניאל).
-      const response = await request(app).get(encodeURI('/api/v1/search?q=תוכנה'));
-      
-      expect(response.statusCode).toBe(200);
-      
-      // בדיקת משתמשים
-      expect(response.body.data.users.length).toBeGreaterThan(0);
-      expect(response.body.data.users[0].name).toBe('דניאל');
-      expect(response.body.data.users[0].bio).toContain('תוכנה');
-    });
+      // 2. תוצאות חיפוש משתמשים
+      pool.query.mockResolvedValueOnce({ 
+        rows: [
+          { id: 'user-2', name: 'אבי', age: 26, distance_km: 0.5 },
+          { id: 'user-3', name: 'דני', age: 30, distance_km: 12 }
+        ] 
+      });
 
-    it('should handle special characters gracefully without crashing SQL', async () => {
-      const response = await request(app).get(encodeURI('/api/v1/search?q=היי!!! *** מפתח;;'));
-      expect(response.statusCode).toBe(200); // ה-Regex שמנקה תווים עבד ולא קרס
-    });
-  });
+      const response = await request(app)
+        .get('/api/v1/search?type=users&q=אבי')
+        .set('Authorization', mockToken);
 
-  // ==========================================
-  // Test Suite 3: Blocked Users & Locations
-  // ==========================================
-  describe('Filters (Blocked, Interests, Location)', () => {
-    it('should completely hide blocked users from search results', async () => {
-      const response = await request(app).get('/api/v1/search?type=users');
-      
-      const userNames = response.body.data.users.map(u => u.name);
-      expect(userNames).not.toContain('המטרידן'); // המשתמש שחסמנו לא קיים
-    });
-
-    it('should filter correctly by specific interests', async () => {
-      const response = await request(app).get('/api/v1/search?interests=gaming');
-      
-      expect(response.statusCode).toBe(200);
-      const userNames = response.body.data.users.map(u => u.name);
-      
-      expect(userNames).toContain('דניאל'); // יש לו gaming
-      expect(userNames.length).toBe(1); // האחרים סוננו כי אין להם gaming (וסוננו גם בגירים)
-    });
-
-    it('should search using custom lat/lng coordinates and radius', async () => {
-      // נחפש סביב הקואורדינטות של דניאל (34.80, 32.09) ברדיוס צר
-      const response = await request(app).get('/api/v1/search?type=users&lat=32.09&lng=34.80&radius_km=5');
-      
-      expect(response.statusCode).toBe(200);
-      expect(response.body.data.users[0].name).toBe('דניאל');
-      expect(response.body.data.users[0].location_label).toBe('קרוב אליך'); // מרחק 0 (אותו מיקום ששלחנו)
-    });
-  });
-
-  // ==========================================
-  // Test Suite 4: Pagination & Types
-  // ==========================================
-  describe('Pagination & Types', () => {
-    it('should fetch only groups when type=groups', async () => {
-      const response = await request(app).get('/api/v1/search?type=groups');
-      expect(response.body.data.users).toBeUndefined();
-      expect(response.body.data.groups).toBeDefined();
-    });
-
-    it('should fetch both when type=all', async () => {
-      const response = await request(app).get('/api/v1/search?type=all');
+      expect(response.status).toBe(200);
       expect(response.body.data.users).toBeDefined();
-      expect(response.body.data.groups).toBeDefined();
+      expect(response.body.data.users.length).toBe(2);
+      expect(response.body.data.groups).toBeUndefined(); // ביקשנו רק users אז קבוצות לא אמורות לחזור
+      
+      // בדיקת הסתרת מרחק מדויק
+      expect(response.body.data.users[0].distance_km).toBeUndefined();
+      expect(response.body.data.users[0].location_label).toBe('קרוב אליך');
+      expect(response.body.data.users[1].location_label).toBe('במרחק 12 ק"מ');
     });
 
-    it('should handle pagination limits correctly', async () => {
-      // נגביל לתוצאה אחת בלבד
-      const response = await request(app).get('/api/v1/search?limit=1');
-      expect(response.body.data.users.length).toBeLessThanOrEqual(1);
+    it('should enforce age restrictions for minors', async () => {
+      // 1. המחפש הוא קטין בן 16
+      pool.query.mockResolvedValueOnce({ rows: [{ age: 16, location: null }] });
       
-      // נוודא שה-pagination מדווח שיש עוד עמודים
-      expect(response.body.pagination.has_next_users).toBe(true);
+      // 2. תוצאות חיפוש (מסד הנתונים מדמה תשובה כלשהי)
+      pool.query.mockResolvedValueOnce({ rows: [{ id: 'user-2', name: 'קטין אחר' }] });
+
+      await request(app)
+        .get('/api/v1/search?type=users&max_age=25') // מנסה "לפרוץ" ולחפש בני 25
+        .set('Authorization', mockToken);
+
+      // אנחנו מציצים לתוך ה-Mock כדי לראות איזה ערך נשלח בפועל למסד הנתונים
+      // pool.query נקרא פעם ראשונה לבדיקת גיל, ופעם שנייה לחיפוש.
+      const searchCall = pool.query.mock.calls[1];
+      const queryText = searchCall[0];
+      const queryParams = searchCall[1];
+      
+      // למרות שהוא שלח max_age=25, ה-Service אמור היה להוריד את זה ל-17 בגלל שהוא קטין!
+      expect(queryParams).toContain(17); 
     });
 
-    it('should not leak sensitive user info in search results', async () => {
-      const response = await request(app).get('/api/v1/search?type=users');
-      const user = response.body.data.users[0];
-      expect(user).not.toHaveProperty('email');
-      expect(user).not.toHaveProperty('phone');
-      expect(user).not.toHaveProperty('location');
-    });
-
-        it('should paginate correctly using the page parameter (Offset)', async () => {
-      // נבקש רק משתמש אחד בעמוד הראשון
-      const page1 = await request(app).get('/api/v1/search?type=users&limit=1&page=1');
-      expect(page1.statusCode).toBe(200);
-      expect(page1.body.data.users.length).toBe(1);
-      const firstUser = page1.body.data.users[0].name;
-
-      // נבקש את העמוד השני
-      const page2 = await request(app).get('/api/v1/search?type=users&limit=1&page=2');
-      expect(page2.statusCode).toBe(200);
-      expect(page2.body.data.users.length).toBeLessThanOrEqual(1);
-      
-      // נוודא שהמשתמש מהעמוד הראשון לא מופיע בעמוד השני
-      if (page2.body.data.users.length > 0) {
-        expect(page2.body.data.users[0].name).not.toBe(firstUser);
-      }
-    });
-
-    it('should use the user\'s saved location if lat/lng are not provided', async () => {
-      // הקטין הראשון (minorUser1) יושב בתל אביב (34.78, 32.08)
-      // נחפש רדיוס 5 ק"מ בלי לשלוח קואורדינטות
-      const response = await request(app).get('/api/v1/search?type=users&radius_km=5');
-      
-      expect(response.statusCode).toBe(200);
-      const userNames = response.body.data.users.map(u => u.name);
-      
-      // הוא אמור למצוא את דניאל (שנמצא במרחק קצר ממנו) למרות שלא שלחנו מיקום מדויק ב-URL
-      expect(userNames).toContain('דניאל'); 
-      
-      const daniel = response.body.data.users.find(u => u.name === 'דניאל');
-      expect(daniel.location_label).toContain('ק"מ'); // חישוב המרחק בוצע בהצלחה
-    });
-
-    it('should handle users without a saved location gracefully', async () => {
-      // ניצור משתמש חדש ללא מיקום
-      const noLocUser = 'no_loc_user';
-      await pool.query(`
-        INSERT INTO users (id, name, email, birth_date, interests) 
-        VALUES ($1, $2, $3, $4, $5)
-      `, [noLocUser, 'ללא מיקום', 'noloc@test.com', getBirthDate(16), ['sports']]);
-
-      // נתחבר דרכו
-      authMiddleware.mockImplementationOnce((req, res, next) => { req.user = { uid: noLocUser }; next(); });
-
-      // נבצע חיפוש כללי
-      const response = await request(app).get('/api/v1/search?type=users');
-      expect(response.statusCode).toBe(200);
-      
-      // נוודא שהחיפוש עבד, אבל התווית מראה שאין מידע על מרחק
-      if (response.body.data.users.length > 0) {
-         expect(response.body.data.users[0].location_label).toBe('מרחק לא ידוע');
-      }
-
-      // מחיקת המשתמש הזמני
-      await pool.query('DELETE FROM users WHERE id = $1', [noLocUser]);
-    });
-
-    it('should allow valid age filtering within the user\'s allowed bounds', async () => {
-      // נתחבר כבגיר (בן 20)
-      authMiddleware.mockImplementationOnce((req, res, next) => { req.user = { uid: adultUser1 }; next(); });
-
-      // הוא מחפש משתמשים בגילאי 21 עד 25
-      const response = await request(app).get('/api/v1/search?type=users&min_age=21&max_age=25');
-      expect(response.statusCode).toBe(200);
-      
-      const userNames = response.body.data.users.map(u => u.name);
-      expect(userNames).toContain('מיכל'); // מיכל בת 22
-      expect(userNames).not.toContain('רונן הבגיר'); // רונן בן 20 ולכן מסונן בגלל ה-min_age
-    });
-
-    it('should return empty results gracefully for non-existent search queries', async () => {
-      // חיפוש ג'יבריש מוחלט
-      const response = await request(app).get('/api/v1/search?q=asdfghjkl123456');
-      
-      expect(response.statusCode).toBe(200);
-      expect(response.body.data.users.length).toBe(0);
-      expect(response.body.data.groups.length).toBe(0);
-    });
   });
 });

@@ -16,6 +16,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json({ limit: '2mb' }));
+app.use(express.urlencoded({ extended: true, limit: '2mb' })); // תוספת חיונית לקבלת Webhooks ושירותים חיצוניים
 app.use(rateLimiter);
 
 // Routes
@@ -40,6 +41,11 @@ app.use('/api/v1/notifications', notifications);
 // Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date() });
+});
+
+// רשת ביטחון 404: מניעת קריסת האפליקציה (Flutter JSON Exception) במקרה של פנייה לנתיב לא קיים
+app.use('*', (req, res, next) => {
+  res.status(404).json({ error: `Route ${req.originalUrl} not found` });
 });
 
 // Global Error handling middleware

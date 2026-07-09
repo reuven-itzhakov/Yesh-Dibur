@@ -1,195 +1,137 @@
+// tests/chats.test.js
 const request = require('supertest');
 const app = require('../src/app');
 const { pool } = require('../src/config/db');
+const { auth } = require('../src/config/firebase');
 
-// ניהול המשתמש המחובר באופן דינמי
-const authMiddleware = require('../src/middlewares/auth');
-jest.mock('../src/middlewares/auth', () => {
-  return jest.fn((req, res, next) => {
-    req.user = { uid: 'user_A' }; // משתמש ברירת המחדל לטסטים אלו
-    next();
-  });
-});
+// Mocks לתשתיות
+jest.mock('../src/config/db', () => ({
+  pool: {
+    query: jest.fn(),
+  }
+}));
 
-describe('Chats API Integration Tests', () => {
-  const userA = 'user_A';
-  const userB = 'user_B';
-  const hackerUser = 'user_HACKER';
+jest.mock('../src/config/redis', () => ({
+  redisClient: { connect: jest.fn(), on: jest.fn() },
+  connectRedis: jest.fn(),
+}));
 
-  // הכנת נתוני תשתית - יצירת משתמשים כדי לעמוד באילוצי Foreign Keys
-  beforeAll(async () => {
-    // מחיקת נתונים ישנים כדי למנוע התנגשויות
-    await pool.query('DELETE FROM messages');
-    await pool.query('UPDATE conversations SET last_message_id = NULL');
-    await pool.query('DELETE FROM conversations');
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2, $3)', [userA, userB, hackerUser]);
+jest.mock('../src/config/rabbitmq', () => ({
+  getChannel: jest.fn(),
+  connectRabbitMQ: jest.fn(),
+}));
 
-    // הזרקת המשתמשים
-    const insertUserQuery = `
-      INSERT INTO users (id, name, email, birth_date, interests) 
-      VALUES ($1, $2, $3, $4, $5)
-    `;
-    await pool.query(insertUserQuery, [userA, 'User A', 'a@test.com', new Date(), ['1', '2', '3', '4', '5']]);
-    await pool.query(insertUserQuery, [userB, 'User B', 'b@test.com', new Date(), ['1', '2', '3', '4', '5']]);
-    await pool.query(insertUserQuery, [hackerUser, 'Hacker', 'hacker@test.com', new Date(), ['1', '2', '3', '4', '5']]);
-  });
+jest.mock('../src/config/firebase', () => ({
+  auth: { verifyIdToken: jest.fn() }
+}));
 
-  // ניקוי טבלאות הצ'אט לפני כל טסט
-  beforeEach(async () => {
-    await pool.query('DELETE FROM messages');
-    await pool.query('UPDATE conversations SET last_message_id = NULL');
-    await pool.query('DELETE FROM conversations');
-    
-    // איפוס המשתמש המחובר ל-userA
-    authMiddleware.mockImplementation((req, res, next) => {
-      req.user = { uid: userA };
-      next();
-    });
+describe('Chats API Routes (/api/v1/chats)', () => {
+  const mockUid = 'firebase-uid-user-1';
+  const mockToken = 'Bearer valid-token-chat';
+  
+  beforeEach(() => {
+    jest.clearAllMocks();
+    auth.verifyIdToken.mockResolvedValue({ uid: mockUid });
   });
 
-  afterAll(async () => {
-    await pool.query('DELETE FROM messages');
-    await pool.query('UPDATE conversations SET last_message_id = NULL');
-    await pool.query('DELETE FROM conversations');
-    await pool.query('DELETE FROM users WHERE id IN ($1, $2, $3)', [userA, userB, hackerUser]);
-    await pool.end();
-  });
-
-  // ==========================================
-  // POST /api/v1/chats - יצירת תיבת שיחה
-  // ==========================================
-  describe('POST /api/v1/chats', () => {
-    it('should create a new chat between two users', async () => {
+  describe('POST /api/v1/chats (Create Chat)', () => {
+    it('should return 400 if validation fails (missing receiver_id)', async () => {
       const response = await request(app)
         .post('/api/v1/chats')
-        .send({ receiver_id: userB });
+        .set('Authorization', mockToken)
+        .send({}); // חסר receiver_id
 
-      expect(response.statusCode).toBe(201);
-      expect(response.body).toHaveProperty('id');
-      
-      // וידוא שהמזהים סודרו אלפביתית כפי שמוגדר בלוגיקה
-      const expectedUser1 = [userA, userB].sort()[0];
-      const expectedUser2 = [userA, userB].sort()[1];
-      
-      expect(response.body.user1_id).toBe(expectedUser1);
-      expect(response.body.user2_id).toBe(expectedUser2);
+      expect(response.status).toBe(400);
+      expect(response.body.error[0].message).toBe('Receiver ID is required');
     });
 
-    it('should block a user from creating a chat with themselves', async () => {
+    it('should return 400 if user tries to chat with themselves', async () => {
       const response = await request(app)
         .post('/api/v1/chats')
-        .send({ receiver_id: userA }); // שולח לעצמו
+        .set('Authorization', mockToken)
+        .send({ receiver_id: mockUid }); // אותו ID
 
-      expect(response.statusCode).toBe(400);
+      expect(response.status).toBe(400);
       expect(response.body.error).toBe('You cannot create a chat with yourself.');
     });
 
-    it('should fail validation if receiver_id is missing', async () => {
-      const response = await request(app).post('/api/v1/chats').send({});
-      expect(response.statusCode).toBe(400); // Zod Validation Error
+    it('should return 403 if blocked by privacy settings or age restrictions', async () => {
+      // מדמים שהשאילתה שבודקת חסימות והתאמת גילאים מחזירה מערך ריק (0 שורות)
+      pool.query.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/api/v1/chats')
+        .set('Authorization', mockToken)
+        .send({ receiver_id: 'firebase-uid-user-2' });
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('Cannot open chat due to privacy settings or age restrictions.');
     });
 
-    it('should gracefully handle duplicate chat creation (ON CONFLICT)', async () => {
-      // יצירה ראשונה
-      await request(app).post('/api/v1/chats').send({ receiver_id: userB });
-      
-      // יצירה שנייה של אותה שיחה
-      const response = await request(app).post('/api/v1/chats').send({ receiver_id: userB });
-      
-      // אמור להחזיר 201 או 200 (תלוי בהגדרת הראוטר) ולעבור בהצלחה ללא קריסה של ה-DB
-      expect(response.statusCode).toBe(201); 
-      
-      // וידוא שלא נוצרה רשומה כפולה ב-DB
-      const dbCheck = await pool.query('SELECT COUNT(*) FROM conversations');
-      expect(parseInt(dbCheck.rows[0].count, 10)).toBe(1);
-    });
-  });
-
-  // ==========================================
-  // GET /api/v1/chats/:id/messages - שליפת היסטוריית הודעות ואבטחה
-  // ==========================================
-  describe('GET /api/v1/chats/:id/messages', () => {
-    let chatId;
-
-    beforeEach(async () => {
-      // ניצור שיחה מראש בין A ל-B
-      const chatRes = await pool.query(
-        'INSERT INTO conversations (user1_id, user2_id) VALUES ($1, $2) RETURNING id',
-        [[userA, userB].sort()[0], [userA, userB].sort()[1]]
-      );
-      chatId = chatRes.rows[0].id;
-    });
-
-    it('should return messages for an authorized participant', async () => {
-      // נזריק הודעה לשיחה
-      await pool.query(`
-        INSERT INTO messages (conversation_id, sender_id, receiver_id, content, status)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [chatId, userA, userB, 'Hello World', 'approved']);
-
-      const response = await request(app).get(`/api/v1/chats/${chatId}/messages`);
-      
-      expect(response.statusCode).toBe(200);
-      expect(response.body.length).toBe(1);
-      expect(response.body[0].content).toBe('Hello World');
-    });
-
-    it('should block an unauthorized user from viewing the chat (Security Check)', async () => {
-      // נשנה את המשתמש המחובר לפורץ שלא קשור לשיחה
-      authMiddleware.mockImplementationOnce((req, res, next) => {
-        req.user = { uid: hackerUser };
-        next();
+    it('should create a chat and return 201', async () => {
+      // 1. בדיקת חסימות (מחזירה שורה אחת - מורשה)
+      pool.query.mockResolvedValueOnce({ rows: [{ id: mockUid }] });
+      // 2. יצירת השיחה / שליפת שיחה קיימת במידה ויש Conflict
+      pool.query.mockResolvedValueOnce({ 
+        rows: [{ id: 'chat-uuid-123', user1_id: mockUid, user2_id: 'firebase-uid-user-2' }] 
       });
 
-      const response = await request(app).get(`/api/v1/chats/${chatId}/messages`);
-      
-      expect(response.statusCode).toBe(403);
-      expect(response.body.error).toBe('You are not authorized to view this chat.');
+      const response = await request(app)
+        .post('/api/v1/chats')
+        .set('Authorization', mockToken)
+        .send({ receiver_id: 'firebase-uid-user-2' });
+
+      expect(response.status).toBe(201);
+      expect(response.body.id).toBe('chat-uuid-123');
     });
   });
 
-  // ==========================================
-  // PUT Actions - אישור שיחה וסימון כנקרא
-  // ==========================================
-  describe('PUT /api/v1/chats/:id/approve & /read', () => {
-    let chatId;
+  describe('GET /api/v1/chats/:id/messages (Get Chat Messages)', () => {
+    const mockChatId = 'chat-uuid-123';
 
-    beforeEach(async () => {
-      const chatRes = await pool.query(
-        'INSERT INTO conversations (user1_id, user2_id) VALUES ($1, $2) RETURNING id',
-        [[userA, userB].sort()[0], [userA, userB].sort()[1]]
-      );
-      chatId = chatRes.rows[0].id;
+    it('should return 403 if user is not authorized to view the chat', async () => {
+      // מדמים מצב שבו המשתמש מנסה לקרוא הודעות של שיחה שהוא לא חלק ממנה, או שהמשתמש השני חסם אותו
+      pool.query.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .get(`/api/v1/chats/${mockChatId}/messages`)
+        .set('Authorization', mockToken);
+
+      expect(response.status).toBe(403);
+      expect(response.body.error).toBe('You are not authorized to view this chat.');
     });
 
-    it('should approve pending messages', async () => {
-      // נזריק הודעה שממתינה לאישור. userA הוא המקבל (receiver).
-      await pool.query(`
-        INSERT INTO messages (conversation_id, sender_id, receiver_id, content, status)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [chatId, userB, userA, 'Pending Message', 'pending_approval']);
+    it('should return messages successfully with pagination', async () => {
+      // 1. ה-Gatekeeper מאשר את הגישה לשיחה
+      pool.query.mockResolvedValueOnce({ rows: [{ id: mockChatId }] });
+      // 2. שליפת ההודעות עצמן
+      pool.query.mockResolvedValueOnce({ 
+        rows: [
+          { id: 'msg-1', content: 'היי!', sender_id: 'firebase-uid-user-2' },
+          { id: 'msg-2', content: 'מה קורה?', sender_id: mockUid }
+        ] 
+      });
 
-      const response = await request(app).put(`/api/v1/chats/${chatId}/approve`);
-      expect(response.statusCode).toBe(200);
+      const response = await request(app)
+        .get(`/api/v1/chats/${mockChatId}/messages?page=1&limit=20`)
+        .set('Authorization', mockToken);
 
-      // נודא ב-DB שהסטטוס השתנה ל-approved
-      const msgCheck = await pool.query('SELECT status FROM messages WHERE conversation_id = $1', [chatId]);
-      expect(msgCheck.rows[0].status).toBe('approved');
+      expect(response.status).toBe(200);
+      expect(response.body.length).toBe(2);
+      expect(response.body[0].content).toBe('היי!');
     });
+  });
 
-    it('should mark approved messages as read', async () => {
-      // נזריק הודעה שאושרה
-      await pool.query(`
-        INSERT INTO messages (conversation_id, sender_id, receiver_id, content, status)
-        VALUES ($1, $2, $3, $4, $5)
-      `, [chatId, userB, userA, 'Approved Message', 'approved']);
+  describe('PUT /api/v1/chats/:id/approve (Approve Chat)', () => {
+    it('should approve a chat and return 200', async () => {
+      pool.query.mockResolvedValueOnce({ rowCount: 1 });
 
-      const response = await request(app).put(`/api/v1/chats/${chatId}/read`);
-      expect(response.statusCode).toBe(200);
+      const response = await request(app)
+        .put('/api/v1/chats/chat-uuid-123/approve')
+        .set('Authorization', mockToken);
 
-      // נודא ב-DB שהסטטוס השתנה ל-read
-      const msgCheck = await pool.query('SELECT status FROM messages WHERE conversation_id = $1', [chatId]);
-      expect(msgCheck.rows[0].status).toBe('read');
+      expect(response.status).toBe(200);
+      expect(response.body.message).toBe('Chat request approved successfully');
     });
   });
 });

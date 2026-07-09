@@ -90,6 +90,17 @@ const startServer = async () => {
     process.on('SIGTERM', () => shutdown('SIGTERM'));
     process.on('SIGINT', () => shutdown('SIGINT'));
 
+    // אטימת קריסות פתאומיות: מניעת מצב "זומבי" והשחתת נתונים במקרה של שגיאת קוד לא צפויה
+    process.on('uncaughtException', (err) => {
+      console.error('CRITICAL ERROR: Uncaught Exception:', err);
+      shutdown('UNCAUGHT_EXCEPTION');
+    });
+
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('CRITICAL ERROR: Unhandled Rejection at:', promise, 'reason:', reason);
+      shutdown('UNHANDLED_REJECTION');
+    });
+
   } catch (error) {
     console.error('Failed to start server:', error);
     process.exit(1);
