@@ -3,6 +3,7 @@ const { auth } = require('../config/firebase');
 
 const socketManager = (io) => {
   // אימות בשלב ה-Handshake (לפני יצירת החיבור בפועל)
+  // אימות בשלב ה-Handshake (לפני יצירת החיבור בפועל)
   io.use(async (socket, next) => {
     try {
       // שליפת הטוקן מתוך פרמטרי ההתחברות שהלקוח שולח
@@ -15,14 +16,18 @@ const socketManager = (io) => {
       // ניקוי הקידומת במקרה שהיא נשלחה
       const actualToken = token.startsWith('Bearer ') ? token.split(' ')[1] : token;
 
-      // אימות הטוקן מול שרתי פיירבייס
-      const decodedToken = await auth.verifyIdToken(actualToken);
+      // אטימת פרצת חיבורי הרפאים (Zombie Sockets):
+      // הוספת 'true' מכריחה את השרת לוודא בזמן אמת שהטוקן לא בוטל ושהמשתמש לא נחסם ב-Firebase!
+      const decodedToken = await auth.verifyIdToken(actualToken, true);
       
       // הצמדת פרטי המשתמש לאובייקט הסוקט כדי שיהיו זמינים בכל האירועים
       socket.user = decodedToken;
       next();
     } catch (error) {
       console.error('Socket authentication failed:', error.message);
+      if (error.code === 'auth/id-token-revoked') {
+        return next(new Error('Authentication error: Token has been revoked.'));
+      }
       next(new Error('Authentication error: Invalid token'));
     }
   });

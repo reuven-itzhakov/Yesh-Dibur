@@ -1,5 +1,9 @@
 const { getChannel } = require('../config/rabbitmq');
+const { pool } = require('../config/db'); // חיוני כדי לעדכן את הפוסט לאחר ההחלטה
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+// יצירת מופע של Gemini (חובה להוסיף את המפתח לקובץ ה-.env)
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const QUEUE = 'moderation';
 const DLQ = 'moderation_dlq';
 const MAX_RETRIES = 3;
@@ -19,11 +23,44 @@ const moderationWorker = {
     channel.consume(QUEUE, async (msg) => {
       if (msg !== null) {
         try {
-          const content = JSON.parse(msg.content.toString());
-          console.log('Processing moderation for content:', content);
+          const payload = JSON.parse(msg.content.toString());
+          console.log(`Processing moderation for thread ID: ${payload.threadId}`);
 
-          // TODO: Implement moderation logic (content filtering) using gemini-3.1-pro
-          // אם המודל יחזיר שגיאת רשת (למשל Timeout), זה יזרוק Exception ל-catch
+          const { threadId, content } = payload;
+
+          if (!threadId || !content) {
+            console.error('Invalid payload: Missing threadId or content. Discarding message.');
+            channel.ack(msg);
+            return;
+          }
+
+          // 1. קריאה למודל הבינה המלאכותית עם הנחיה מחמירה לפורמט JSON
+          const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            generationConfig: { responseMimeType: "application/json" }
+          });
+
+          const prompt = `
+            Analyze the following user-generated text for any inappropriate content, hate speech, bullying, explicit language, or severe spam.
+            Text to analyze: "${content}"
+            
+            Respond STRICTLY with a valid JSON object in the exact following format:
+            {"status": "approved" | "rejected", "reason": "A short explanation of your decision"}
+          `;
+
+          const result = await model.generateContent(prompt);
+          const responseText = result.response.text();
+          
+          // 2. ניקוי בטיחותי (למקרה שהמודל עטף את התשובה בסימוני markdown כמו ```json)
+          const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim();
+          const decision = JSON.parse(cleanJsonString);
+
+          // 3. עדכון מסד הנתונים בהתאם להחלטת הבינה המלאכותית
+          const newStatus = decision.status === 'rejected' ? 'rejected' : 'approved';
+          const updateQuery = 'UPDATE threads SET moderation_status = $1 WHERE id = $2';
+          await pool.query(updateQuery, [newStatus, threadId]);
+
+          console.log(`Thread ${threadId} moderation complete. Status: ${newStatus}. Reason: ${decision.reason}`);
 
           channel.ack(msg);
         } catch (error) {
