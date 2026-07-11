@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../feed/views/feed_screen.dart';
+import '../../chat/views/chat_inbox_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -19,7 +20,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     const Center(child: Text('חיפוש')),
     const Center(child: Text('מסך יצירת פוסט/קבוצה')),
     const Center(child: Text('התראות')),
-    const Center(child: Text('תיבת הודעות (Inbox)')),
+    const ChatInboxScreen(), // הוחלף מהפלייסבולדר הקודם
   ];
 // מתוך הקובץ _MainLayoutScreenState
   void _onItemTapped(int index) {
