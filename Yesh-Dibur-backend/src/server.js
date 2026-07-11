@@ -3,6 +3,31 @@ const { Server } = require('socket.io');
 const { createAdapter } = require('@socket.io/redis-adapter'); 
 const dotenv = require('dotenv');
 
+function getLocalIpAddress() {
+  const os = require('os');
+  const interfaces = os.networkInterfaces();
+  let fallbackIp = 'localhost';
+
+  for (const interfaceName in interfaces) {
+    // דילוג על כרטיסי רשת וירטואליים של Hyper-V, WSL או Docker
+    if (interfaceName.toLowerCase().includes('vethernet') || interfaceName.toLowerCase().includes('wsl')) {
+      continue;
+    }
+
+    for (const iface of interfaces[interfaceName]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        // עדיפות עליונה לטווח הכתובות הביתי הנפוץ (Wi-Fi / Ethernet אמיתי)
+        if (iface.address.startsWith('192.168.')) {
+          return iface.address;
+        }
+        // שומרים כתובת אחרת לגיבוי למקרה שאין 192.168 (למשל ב-Production בענן)
+        fallbackIp = iface.address;
+      }
+    }
+  }
+  return fallbackIp;
+}
+
 dotenv.config();
 
 const app = require('./app');
@@ -15,6 +40,7 @@ const moderationWorker = require('./workers/moderationWorker');
 const pushWorker = require('./workers/pushWorker');
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '127.0.0.1';
 
 const startServer = async () => {
   try {
@@ -44,8 +70,14 @@ const startServer = async () => {
     await moderationWorker.start();
     await pushWorker.start();
 
-    const runningServer = server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+    const runningServer = server.listen(PORT, HOST, () => {
+      if (HOST === '0.0.0.0') {
+        const localIp = getLocalIpAddress();
+        console.log(`Server running on port http://${localIp}:${PORT}`);
+      }
+      else {
+        console.log(`Server running on port http://localhost:${PORT}`);
+      }
     });
 
     // 5. מנגנון כיבוי אלגנטי (Graceful Shutdown) המונע השחתת נתונים

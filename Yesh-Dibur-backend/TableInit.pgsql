@@ -1,3 +1,7 @@
+-- מחיקת כל הטבלאות והסכמות הקיימות במסד הנתונים לצורך אתחול מחדש
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+
 -- הפעלת תוסף PostGIS לטובת חישובי מיקום ומרחקים (חובה עבור מנוע החיפוש והפיד)
 CREATE EXTENSION IF NOT EXISTS postgis;
 
@@ -14,16 +18,21 @@ $$ language 'plpgsql';
 -- 1. טבלת משתמשים (Users)
 ---------------------------------------------------------
 CREATE TABLE users (
-    id VARCHAR(128) PRIMARY KEY, -- מזהה המשתמש מגיע מ-Firebase (UID)
+    id VARCHAR(128) PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE,
+    phone VARCHAR(50),
     bio TEXT,
     profile_image_url TEXT,
     birth_date DATE,
-    location GEOGRAPHY(Point, 4326), -- שמירת מיקום מדויק בפורמט גיאוגרפי
-    interests TEXT[], -- מערך של מחרוזות לתחומי עניין
+    location GEOGRAPHY(Point, 4326), 
+    interests TEXT[], 
+    instagram_url TEXT,
+    tiktok_url TEXT,
+    settings JSONB, 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    deleted_at TIMESTAMP WITH TIME ZONE -- Soft Delete
+    deleted_at TIMESTAMP WITH TIME ZONE 
 );
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
@@ -45,7 +54,8 @@ CREATE TABLE groups (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     name VARCHAR(255) NOT NULL,
     description TEXT,
-    image_url TEXT, -- או cover_image_url בהתאם למה שבחרת לשלוח מהאפליקציה
+    cover_image_url TEXT,
+    image_url TEXT,
     is_private BOOLEAN DEFAULT FALSE,
     interests TEXT[],
     admin_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
@@ -67,7 +77,22 @@ CREATE TABLE group_members (
 );
 
 ---------------------------------------------------------
--- 5. טבלת פוסטים/שרשורים (Threads)
+-- 5. טבלת הזמנות לקבוצה (Group Invitations)
+---------------------------------------------------------
+CREATE TABLE group_invitations (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    group_id UUID REFERENCES groups(id) ON DELETE CASCADE,
+    inviter_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
+    invitee_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
+    status VARCHAR(50) DEFAULT 'pending', 
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TRIGGER update_group_invitations_updated_at BEFORE UPDATE ON group_invitations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+---------------------------------------------------------
+-- 6. טבלת פוסטים/שרשורים (Threads)
 ---------------------------------------------------------
 CREATE TABLE threads (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -79,7 +104,7 @@ CREATE TABLE threads (
     aspect_ratio REAL,
     likes_count INT DEFAULT 0,
     comments_count INT DEFAULT 0,
-    moderation_status VARCHAR(50) DEFAULT 'pending', -- pending, approved, rejected
+    moderation_status VARCHAR(50) DEFAULT 'pending', 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP WITH TIME ZONE
@@ -88,7 +113,25 @@ CREATE TABLE threads (
 CREATE TRIGGER update_threads_updated_at BEFORE UPDATE ON threads FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 ---------------------------------------------------------
--- 6. טבלת לייקים (Thread Likes)
+-- 7. טבלת תגובות לפוסטים (Thread Comments)
+---------------------------------------------------------
+CREATE TABLE thread_comments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    thread_id UUID REFERENCES threads(id) ON DELETE CASCADE,
+    author_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT,
+    image_url TEXT,
+    aspect_ratio REAL,
+    moderation_status VARCHAR(50) DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE TRIGGER update_thread_comments_updated_at BEFORE UPDATE ON thread_comments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+---------------------------------------------------------
+-- 8. טבלת לייקים לפוסטים (Thread Likes)
 ---------------------------------------------------------
 CREATE TABLE thread_likes (
     thread_id UUID REFERENCES threads(id) ON DELETE CASCADE,
@@ -98,21 +141,21 @@ CREATE TABLE thread_likes (
 );
 
 ---------------------------------------------------------
--- 7. טבלת שיחות צ'אט (Conversations)
+-- 9. טבלת שיחות צ'אט (Conversations)
 ---------------------------------------------------------
 CREATE TABLE conversations (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user1_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
     user2_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
-    last_message_id UUID, -- יוגדר כמפתח זר (Foreign Key) בהמשך למניעת מעגליות
+    last_message_id UUID, 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_conversation UNIQUE (user1_id, user2_id),
-    CONSTRAINT user_order CHECK (user1_id < user2_id) -- הבטחה שתמיד user1 יהיה הקטן אלפביתית כדי למנוע כפילויות שיחה
+    CONSTRAINT user_order CHECK (user1_id < user2_id) 
 );
 
 ---------------------------------------------------------
--- 8. טבלת הודעות צ'אט (Messages)
+-- 10. טבלת הודעות צ'אט (Messages)
 ---------------------------------------------------------
 CREATE TABLE messages (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -122,29 +165,28 @@ CREATE TABLE messages (
     content TEXT,
     image_url TEXT,
     aspect_ratio REAL,
-    status VARCHAR(50) DEFAULT 'pending_approval', -- pending_approval, approved, read
+    status VARCHAR(50) DEFAULT 'pending_approval', 
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- הוספת מפתח זר לתיבת השיחה כעת כשטבלת ההודעות קיימת
 ALTER TABLE conversations 
 ADD CONSTRAINT fk_last_message 
 FOREIGN KEY (last_message_id) REFERENCES messages(id) ON DELETE SET NULL;
 
 ---------------------------------------------------------
--- 9. טבלת התראות (Notifications)
+-- 11. טבלת התראות (Notifications)
 ---------------------------------------------------------
 CREATE TABLE notifications (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
-    sender_id VARCHAR(128) REFERENCES users(id) ON DELETE SET NULL, -- מי שייצר את ההתראה
-    type VARCHAR(100) NOT NULL, -- למשל: 'new_message', 'group_invite', 'post_approved'
+    sender_id VARCHAR(128) REFERENCES users(id) ON DELETE SET NULL, 
+    type VARCHAR(100) NOT NULL, 
     is_read BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
 ---------------------------------------------------------
--- 10. טבלת מכשירים לטובת Push Notifications (Device Tokens)
+-- 12. טבלת מכשירים לטובת Push Notifications (Device Tokens)
 ---------------------------------------------------------
 CREATE TABLE device_tokens (
     user_id VARCHAR(128) REFERENCES users(id) ON DELETE CASCADE,
@@ -157,21 +199,16 @@ CREATE TABLE device_tokens (
 ---------------------------------------------------------
 -- יצירת אינדקסים (Indexes) לשיפור ביצועי שליפה וחיפוש
 ---------------------------------------------------------
--- אינדקס מרחבי למיקומים (קריטי לפיד הגילוי ולחיפוש רדיוס)
 CREATE INDEX idx_users_location ON users USING GIST (location);
-
--- אינדקסים לחיפוש טקסט מלא (GIN) לביצועים מהירים יותר
-CREATE INDEX idx_users_name_bio ON users USING GIN (to_tsvector('simple', name || ' ' || COALESCE(bio, '')));
-CREATE INDEX idx_groups_name_desc ON groups USING GIN (to_tsvector('simple', name || ' ' || COALESCE(description, '')));
-
--- אינדקסי מערכים לתחומי עניין (לטובת ההצלבות שעשינו בפיד)
+CREATE INDEX idx_users_name_bio ON users USING GIN (to_tsvector('simple', COALESCE(name, '') || ' ' || COALESCE(bio, '')));
+CREATE INDEX idx_groups_name_desc ON groups USING GIN (to_tsvector('simple', COALESCE(name, '') || ' ' || COALESCE(description, '')));
 CREATE INDEX idx_users_interests ON users USING GIN (interests);
 CREATE INDEX idx_groups_interests ON groups USING GIN (interests);
 
--- אינדקסים סטנדרטיים לשאילתות נפוצות ב-WHERE וב-ORDER BY
 CREATE INDEX idx_threads_group_id ON threads(group_id);
 CREATE INDEX idx_threads_author_id ON threads(author_id);
 CREATE INDEX idx_threads_created_at ON threads(created_at DESC);
+CREATE INDEX idx_thread_comments_thread_id ON thread_comments(thread_id);
 CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
 CREATE INDEX idx_conversations_updated_at ON conversations(updated_at DESC);
 CREATE INDEX idx_notifications_user_unread ON notifications(user_id) WHERE is_read = FALSE;
