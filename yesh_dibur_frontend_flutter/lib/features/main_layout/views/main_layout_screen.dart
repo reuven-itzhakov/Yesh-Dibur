@@ -50,7 +50,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
                 title: const Text('יצירת פוסט חדש', style: TextStyle(fontSize: 18)),
                 onTap: () {
                   context.pop();
-                  // כאן נוסיף בהמשך מעבר למסך יצירת פוסט
+                  context.push('/create-thread'); // פותח את מסך יצירת הפוסט
                 },
               ),
               const Divider(color: AppTheme.border),

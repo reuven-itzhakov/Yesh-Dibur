@@ -1,5 +1,6 @@
 import 'package:go_router/go_router.dart';
 import 'package:yesh_dibur_frontend_flutter/features/groups/views/create_group_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/threads/views/create_thread_screen.dart';
 import '../../features/auth/views/splash_screen.dart';
 import '../../features/auth/views/register_screen.dart';
 import '../../features/main_layout/views/main_layout_screen.dart';
@@ -26,6 +27,11 @@ final appRouter = GoRouter(
       path: '/create-group',
       name: 'create-group',
       builder: (context, state) => const CreateGroupScreen(),
+    ),
+    GoRoute(
+      path: '/create-thread',
+      name: 'create-thread',
+      builder: (context, state) => const CreateThreadScreen(),
     ),
   ],
 );

@@ -1,9 +1,10 @@
 const { getChannel } = require('../config/rabbitmq');
 const { pool } = require('../config/db'); // חיוני כדי לעדכן את הפוסט לאחר ההחלטה
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 
-// יצירת מופע של Gemini (חובה להוסיף את המפתח לקובץ ה-.env)
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+// יצירת מופע של ה-SDK החדש (חובה להוסיף את המפתח לקובץ ה-.env)
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+
 const QUEUE = 'moderation';
 const DLQ = 'moderation_dlq';
 const MAX_RETRIES = 3;
@@ -34,12 +35,6 @@ const moderationWorker = {
             return;
           }
 
-          // 1. קריאה למודל הבינה המלאכותית עם הנחיה מחמירה לפורמט JSON
-          const model = genAI.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
-            generationConfig: { responseMimeType: "application/json" }
-          });
-
           const prompt = `
             Analyze the following user-generated text for any inappropriate content, hate speech, bullying, explicit language, or severe spam.
             Text to analyze: "${content}"
@@ -48,8 +43,16 @@ const moderationWorker = {
             {"status": "approved" | "rejected", "reason": "A short explanation of your decision"}
           `;
 
-          const result = await model.generateContent(prompt);
-          const responseText = result.response.text();
+          // 1. קריאה למודל הבינה המלאכותית באמצעות ה-SDK החדש עם הנחיה מחמירה לפורמט JSON
+          const response = await ai.models.generateContent({
+            model: 'models/gemini-3.5-flash',
+            contents: prompt,
+            config: {
+              responseMimeType: 'application/json',
+            }
+          });
+
+          const responseText = response.text;
           
           // 2. ניקוי בטיחותי (למקרה שהמודל עטף את התשובה בסימוני markdown כמו ```json)
           const cleanJsonString = responseText.replace(/```json/g, '').replace(/```/g, '').trim();

@@ -49,10 +49,11 @@ const threadService = {
   createThread: async (authorId, data) => {
 
     // 1. שמירת הפוסט במסד הנתונים - אנו משתמשים ב-SELECT כדי לוודא שהיוצר הוא אכן חבר בקבוצה!
-    const query = `
+const query = `
       INSERT INTO threads (group_id, author_id, content, bg_type, bg_value, aspect_ratio, moderation_status)
-      SELECT $1, $2, $3, $4, $5, $6, 'pending'
-      WHERE EXISTS (SELECT 1 FROM group_members WHERE group_id = $1 AND user_id = $2)
+      SELECT group_id, user_id, $3, $4, $5, $6, 'pending'
+      FROM group_members
+      WHERE group_id = $1 AND user_id = $2
       RETURNING *;
     `;
     const values = [data.group_id, authorId, data.content, data.bg_type, data.bg_value, data.aspect_ratio || null];
@@ -73,7 +74,7 @@ const threadService = {
     if (channel) {
       const moderationPayload = {
         type: 'thread',
-        target_id: newThread.id,
+        threadId: newThread.id,
         content: newThread.content
       };
       channel.publish('', 'moderation', Buffer.from(JSON.stringify(moderationPayload)));
