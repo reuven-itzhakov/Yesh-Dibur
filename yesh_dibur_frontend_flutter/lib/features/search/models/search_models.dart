@@ -24,7 +24,7 @@ class UserSearchResult {
   final String? locationLabel;
   final num? age;
 
-  UserSearchResult({
+UserSearchResult({
     required this.id,
     required this.name,
     this.bio,
@@ -34,13 +34,19 @@ class UserSearchResult {
   });
 
   factory UserSearchResult.fromJson(Map<String, dynamic> json) {
+    // הוספנו המרה בטוחה למספר כדי לטפל במקרה שהשרת מחזיר מחרוזת כמו "25"
+    num? parsedAge;
+    if (json['age'] != null) {
+      parsedAge = num.tryParse(json['age'].toString());
+    }
+
     return UserSearchResult(
       id: json['id'] ?? '',
       name: json['name'] ?? 'משתמש',
       bio: json['bio'],
       profileImageUrl: json['profile_image_url'],
       locationLabel: json['location_label'],
-      age: json['age'],
+      age: parsedAge,
     );
   }
 }
