@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../core/theme/app_theme.dart';
+import '../repositories/auth_repository.dart';
 
-class SplashScreen extends StatefulWidget {
+class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
   @override
-  State<SplashScreen> createState() => _SplashScreenState();
+  ConsumerState<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderStateMixin {
+class _SplashScreenState extends ConsumerState<SplashScreen> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
 
@@ -24,7 +28,45 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     );
     _controller.forward();
     
-    // כאן בעתיד הקרוב נבדוק אם יש משתמש מחובר ב-Firebase ונעביר למסך המתאים
+    // הפעלת בדיקת האותנטיקציה ברקע
+    _checkAuthentication();
+  }
+
+  Future<void> _checkAuthentication() async {
+    // נותנים לאנימציה לרוץ קצת כדי שהמעבר לא יהיה פתאומי מדי
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (!mounted) return;
+
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      // אין משתמש מקומי בכלל
+      context.go('/register');
+      return;
+    }
+
+    try {
+      // 1. כפיית רענון טוקן: זה תופס מצבים שבהם המשתמש נמחק ממסוף Firebase
+      await user.getIdToken(true);
+
+      // 2. בדיקה מול הבקאנד שלנו (PostgreSQL) שהפרופיל אכן קיים
+      final authRepo = ref.read(authRepositoryProvider);
+      final profile = await authRepo.getUserProfile();
+
+      if (profile == null) {
+        // המשתמש קיים בפיירבייס, אבל לא סיים הרשמה או נמחק מה-DB שלנו
+        await FirebaseAuth.instance.signOut();
+        if (mounted) context.go('/register');
+      } else {
+        // הכל תקין, המשתמש קיים בשתי המערכות
+        if (mounted) context.go('/home');
+      }
+    } catch (e) {
+      // אם הטוקן פג תוקף, נחסם, או שיש שגיאת רשת חמורה
+      await FirebaseAuth.instance.signOut();
+      if (mounted) context.go('/register');
+    }
   }
 
   @override
@@ -36,7 +78,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      // שימוש בגרדיאנט כדי לתת תחושה מודרנית
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
@@ -47,7 +88,6 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // החלף את האייקון בלוגו האמיתי של האפליקציה כשיש לך אותו
               const Icon(
                 Icons.chat_bubble_outline_rounded,
                 size: 80,

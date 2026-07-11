@@ -1,3 +1,4 @@
+import 'package:go_router/go_router.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/errors/exceptions.dart';
@@ -84,6 +85,15 @@ void _submit() async {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('נרשמת בהצלחה בפיירבייס וב-PostgreSQL!'), backgroundColor: Colors.green),
       );
+    }
+
+    if (success && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('נרשמת בהצלחה!'), backgroundColor: Colors.green),
+      );
+      
+      // ניווט אוטומטי למסך הבית
+      context.go('/home'); 
     }
   }
 
