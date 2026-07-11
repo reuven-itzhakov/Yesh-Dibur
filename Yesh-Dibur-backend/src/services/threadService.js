@@ -214,7 +214,7 @@ const query = `
       const channel = getChannel();
       if (channel) {
         // תור סינון (AI)
-        const modPayload = { type: 'comment', target_id: newComment.id, content: newComment.content };
+        const modPayload = { type: 'comment', threadId: newComment.id, content: newComment.content };
         channel.publish('', 'moderation', Buffer.from(JSON.stringify(modPayload)));
 
         // תור התראות למחבר הפוסט (Push) - עכשיו האפליקציה תדע לאיזו קבוצה לנווט!

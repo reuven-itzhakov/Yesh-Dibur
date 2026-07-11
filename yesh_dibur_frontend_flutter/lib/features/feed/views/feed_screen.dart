@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/thread_model.dart';
 import '../providers/feed_provider.dart';
@@ -140,62 +141,67 @@ class _FeedListViewState extends ConsumerState<_FeedListView> {
 // כרטיסייה פונקציונלית פשוטה להצגת הנתונים בלבד
 class _ThreadCardBase extends StatelessWidget {
   final ThreadModel thread;
-
   const _ThreadCardBase({required this.thread});
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      color: AppTheme.muted,
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                const CircleAvatar(child: Icon(Icons.person)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+    return InkWell(
+      onTap: () {
+        // מעבר למסך הפנימי של הפוסט בעת לחיצה על הכרטיסייה
+        context.push('/thread/${thread.id}');
+      },
+      child: Card(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        color: AppTheme.muted,
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const CircleAvatar(child: Icon(Icons.person)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(thread.authorName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        Text(thread.groupName, style: const TextStyle(color: AppTheme.secondary, fontSize: 12)),
+                      ],
+                    ),
+                  ),
+                  if (thread.locationLabel != null)
+                    Text(thread.locationLabel!, style: const TextStyle(fontSize: 12, color: AppTheme.mutedForeground)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Text(thread.content),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Row(
                     children: [
-                      Text(thread.authorName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                      Text(thread.groupName, style: const TextStyle(color: AppTheme.secondary, fontSize: 12)),
+                      Icon(thread.isLiked ? Icons.favorite : Icons.favorite_border, 
+                          color: thread.isLiked ? AppTheme.primary : null, size: 20),
+                      const SizedBox(width: 4),
+                      Text('${thread.likesCount}'),
                     ],
                   ),
-                ),
-                if (thread.locationLabel != null)
-                  Text(thread.locationLabel!, style: const TextStyle(fontSize: 12, color: AppTheme.mutedForeground)),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(thread.content),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Row(
-                  children: [
-                    Icon(thread.isLiked ? Icons.favorite : Icons.favorite_border, 
-                         color: thread.isLiked ? AppTheme.primary : null, size: 20),
-                    const SizedBox(width: 4),
-                    Text('${thread.likesCount}'),
-                  ],
-                ),
-                Row(
-                  children: [
-                    const Icon(Icons.chat_bubble_outline, size: 20),
-                    const SizedBox(width: 4),
-                    Text('${thread.commentsCount}'),
-                  ],
-                ),
-              ],
-            )
-          ],
+                  Row(
+                    children: [
+                      const Icon(Icons.chat_bubble_outline, size: 20),
+                      const SizedBox(width: 4),
+                      Text('${thread.commentsCount}'),
+                    ],
+                  ),
+                ],
+              )
+            ],
+          ),
         ),
-      ),
+      )
     );
   }
 }
