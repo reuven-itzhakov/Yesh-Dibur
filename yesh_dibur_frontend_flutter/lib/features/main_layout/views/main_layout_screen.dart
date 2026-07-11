@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../feed/views/feed_screen.dart';
 import '../../chat/views/chat_inbox_screen.dart';
+import '../../search/views/search_screen.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -17,7 +18,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   // רשימת המסכים (מסך הפיד הוכנס לאינדקס 0)
   final List<Widget> _screens = [
     const FeedScreen(), // הוחלף מהפלייסבולדר הקודם
-    const Center(child: Text('חיפוש')),
+    const SearchScreen(), // הוחלף מהפלייסבולדר הקודם
     const Center(child: Text('מסך יצירת פוסט/קבוצה')),
     const Center(child: Text('התראות')),
     const ChatInboxScreen(), // הוחלף מהפלייסבולדר הקודם

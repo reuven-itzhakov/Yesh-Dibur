@@ -57,6 +57,16 @@ class SocketService {
     _socket?.emit('leaveChat', chatId);
   }
 
+  // שידור אירוע הקלדה לשרת
+  void emitTyping(String chatId) {
+    _socket?.emit('typing', {'chatId': chatId});
+  }
+
+  // סימון הודעות כנקראו
+  void markAsRead(String chatId) {
+    _socket?.emit('markAsRead', {'chatId': chatId});
+  }
+
   // שליחת הודעה דרך הסוקט עם Callback שממתין לאישור השרת (ACK)
   Future<Map<String, dynamic>> sendMessage(Map<String, dynamic> data) {
     final completer = Completer<Map<String, dynamic>>();

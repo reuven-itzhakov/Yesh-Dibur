@@ -1,4 +1,5 @@
 import 'package:go_router/go_router.dart';
+import 'package:yesh_dibur_frontend_flutter/features/chat/views/chat_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/groups/views/create_group_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/threads/views/create_thread_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/threads/views/thread_details_screen.dart';
@@ -40,6 +41,20 @@ final appRouter = GoRouter(
       builder: (context, state) {
         final threadId = state.pathParameters['id']!;
         return ThreadDetailsScreen(threadId: threadId);
+      },
+    ),
+    GoRoute(
+      path: '/chat/:chatId/:receiverId/:receiverName', // עדכון נתיב הגישה
+      name: 'chat-screen',
+      builder: (context, state) {
+        final chatId = state.pathParameters['chatId']!;
+        final receiverId = state.pathParameters['receiverId']!; // חילוץ המזהה
+        final receiverName = state.pathParameters['receiverName']!;
+        return ChatScreen(
+          chatId: chatId, 
+          receiverId: receiverId, 
+          receiverName: receiverName,
+        );
       },
     ),
   ],

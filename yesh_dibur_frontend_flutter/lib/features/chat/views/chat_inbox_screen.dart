@@ -59,8 +59,8 @@ class ChatInboxScreen extends ConsumerWidget {
                         )
                       : null,
                   onTap: () {
-                    // מעבר למסך הצ'אט הספציפי (נבנה אותו בשלב הבא)
-                    context.push('/chat/${chat.id}/${chat.otherUserName}');
+                    // מעבר למסך הצ'אט תוך העברת הנתונים האמיתיים
+                    context.push('/chat/${chat.id}/${chat.otherUserId}/${chat.otherUserName}');
                   },
                 );
               },
