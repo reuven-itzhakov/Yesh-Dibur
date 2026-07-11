@@ -8,16 +8,14 @@ class ErrorInterceptor extends Interceptor {
       final statusCode = err.response!.statusCode;
       final data = err.response!.data;
 
-      // טיפול בשגיאות הוולידציה של Zod (מחזיר מערך תחת המפתח 'error')
-      if (statusCode == 400 && data != null && data['error'] is List) {
-        final errorsList = data['error'] as List;
+      // שינוי: השרת שלך מחזיר את מערך השגיאות תחת "details" ולא "error"
+      if (statusCode == 400 && data != null && data['details'] is List) {
+        final errorsList = data['details'] as List;
         final Map<String, String> validationErrors = {};
 
         for (var errObj in errorsList) {
           if (errObj is Map && errObj.containsKey('path') && errObj.containsKey('message')) {
-            final pathList = errObj['path'] as List;
-            // חילוץ שם השדה עליו נפלה הוולידציה
-            final field = pathList.isNotEmpty ? pathList.first.toString() : 'general';
+            final field = errObj['path'].toString();
             validationErrors[field] = errObj['message'].toString();
           }
         }
@@ -27,13 +25,12 @@ class ErrorInterceptor extends Interceptor {
         }
       }
 
-      // טיפול בשגיאות שרת כלליות (למשל Conflict 409 או שגיאת טוקן 401)
+      // טיפול בשגיאות שרת כלליות
       if (data != null && data['error'] is String) {
         throw ServerException(data['error']);
       }
     }
 
-    // אם זו שגיאת רשת פשוטה (כמו אין אינטרנט)
     if (err.type == DioExceptionType.connectionTimeout || err.type == DioExceptionType.connectionError) {
       throw ServerException('אין חיבור לאינטרנט. אנא בדוק את הרשת שלך ונסה שוב.');
     }

@@ -17,7 +17,19 @@ class AppTheme {
 
   // --- גרדיאנטים מרכזיים ---
   static const LinearGradient gradientA = LinearGradient(
-    colors: [Color(0xFFFF4A3F), Color(0xFFFF8A00)],
+    colors: [Color(0xFFFF4A3F), Color(0xFFFF8A00)], // Primary to Orange
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient gradientB = LinearGradient(
+    colors: [Color(0xFF8A2BE2), Color(0xFF00D4FF)], // Purple to Aqua Mint
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+  );
+
+  static const LinearGradient gradientC = LinearGradient(
+    colors: [Color(0xFFFF007F), Color(0xFF9400D3)], // Pink to Deep Purple
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
   );
