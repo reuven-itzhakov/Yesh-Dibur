@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart'; // נפתח כשתגדיר את פיירבייס
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:yesh_dibur_frontend_flutter/firebase_options.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
@@ -9,6 +10,9 @@ import 'core/theme/app_theme.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // טעינת משתני הסביבה לפני הכל
+  await dotenv.load(fileName: ".env");
+
   // השורות הבאות חיוניות לאתחול Firebase מול ה-Native (iOS/Android)
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
