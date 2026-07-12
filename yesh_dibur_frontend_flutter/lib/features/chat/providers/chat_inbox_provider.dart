@@ -1,37 +1,18 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../models/chat_conversation_model.dart';
 import '../repositories/chat_repository.dart';
 
-// שימוש ב-StateNotifierProvider שעוקף את בעיית הטיפוסים
-final chatInboxProvider = StateNotifierProvider.autoDispose<ChatInboxNotifier, AsyncValue<List<ChatConversationModel>>>((ref) {
-  return ChatInboxNotifier(ref);
-});
+part 'chat_inbox_provider.g.dart';
 
-class ChatInboxNotifier extends StateNotifier<AsyncValue<List<ChatConversationModel>>> {
-  final Ref ref;
-
-  // אתחול המצב לטעינה ושליפת השיחות באופן מיידי
-  ChatInboxNotifier(this.ref) : super(const AsyncValue.loading()) {
-    _fetchInitial();
-  }
-
-  Future<void> _fetchInitial() async {
-    try {
-      final chats = await ref.read(chatRepositoryProvider).getChats();
-      if (mounted) state = AsyncValue.data(chats);
-    } catch (e, st) {
-      if (mounted) state = AsyncValue.error(e, st);
-    }
+@riverpod
+class ChatInbox extends _$ChatInbox {
+  @override
+  FutureOr<List<ChatConversationModel>> build() async {
+    return ref.read(chatRepositoryProvider).getChats();
   }
 
   Future<void> refresh() async {
     state = const AsyncValue.loading();
-    try {
-      final chats = await ref.read(chatRepositoryProvider).getChats();
-      if (mounted) state = AsyncValue.data(chats);
-    } catch (e, st) {
-      if (mounted) state = AsyncValue.error(e, st);
-    }
+    state = await AsyncValue.guard(() => ref.read(chatRepositoryProvider).getChats());
   }
 }

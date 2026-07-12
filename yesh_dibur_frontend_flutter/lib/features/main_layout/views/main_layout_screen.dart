@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:yesh_dibur_frontend_flutter/features/notifications/views/notifications_screen.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../feed/views/feed_screen.dart';
 import '../../chat/views/chat_inbox_screen.dart';
@@ -20,7 +21,7 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
     const FeedScreen(), // הוחלף מהפלייסבולדר הקודם
     const SearchScreen(), // הוחלף מהפלייסבולדר הקודם
     const Center(child: Text('מסך יצירת פוסט/קבוצה')),
-    const Center(child: Text('התראות')),
+    const NotificationsScreen(), // החלף את הפלייסבולדר של אינדקס 3
     const ChatInboxScreen(), // הוחלף מהפלייסבולדר הקודם
   ];
 // מתוך הקובץ _MainLayoutScreenState

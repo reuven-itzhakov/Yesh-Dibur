@@ -23,12 +23,12 @@ class _ThreadDetailsScreenState extends ConsumerState<ThreadDetailsScreen> {
   }
 
   void _submitComment() async {
-    final success = await ref.read(commentsNotifierProvider(widget.threadId).notifier).addComment(_commentController.text);
+    final success = await ref.read(commentsProvider(widget.threadId).notifier).addComment(_commentController.text);
     if (success && mounted) {
       _commentController.clear();
       FocusScope.of(context).unfocus(); // הורדת המקלדת
     } else {
-      final errorState = ref.read(commentsNotifierProvider(widget.threadId));
+      final errorState = ref.read(commentsProvider(widget.threadId));
       if (errorState.hasError) {
         final err = errorState.error;
         final msg = err is ValidationException ? 'שגיאת וולידציה:\n${err.errors}' : err.toString();
@@ -50,7 +50,7 @@ class _ThreadDetailsScreenState extends ConsumerState<ThreadDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final threadAsync = ref.watch(threadDetailsProvider(widget.threadId));
-    final commentsAsync = ref.watch(commentsNotifierProvider(widget.threadId));
+    final commentsAsync = ref.watch(commentsProvider(widget.threadId));
 
     return Scaffold(
       appBar: AppBar(title: const Text('דיון')),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/errors/exceptions.dart';
 import '../providers/auth_controller.dart';
@@ -28,13 +29,17 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     
     if (email.isEmpty || password.isEmpty) return;
     
-    // ניסיון התחברות
-    // await ref.read(authControllerProvider.notifier).loginWithEmail(email, password);
+    // קריאה לפונקציית ההתחברות החדשה
+    final success = await ref.read(authControllerProvider.notifier).loginWithEmail(email, password);
+    
+    // מעבר לפיד הראשי במקרה של הצלחה
+    if (success && mounted) {
+      context.go('/');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    // האזנה לשגיאות מהקונטרולר והצגת חיווי מיידי למשתמש
     ref.listen<AsyncValue<void>>(
       authControllerProvider,
       (previous, next) {
@@ -59,7 +64,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       body: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          gradient: AppTheme.gradientB, // שימוש בגרדיאנט B המשלב סגול ואקווה
+          gradient: AppTheme.gradientB, 
         ),
         child: SafeArea(
           child: Padding(
@@ -68,49 +73,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(
-                  Icons.electric_bolt_rounded,
-                  size: 64,
-                  color: AppTheme.primary,
-                ),
+                const Icon(Icons.electric_bolt_rounded, size: 64, color: AppTheme.primary),
                 const SizedBox(height: 32),
-                Text(
-                  'ברוכים הבאים',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.displayMedium,
-                ),
+                Text('ברוכים השבים', textAlign: TextAlign.center, style: Theme.of(context).textTheme.displayMedium),
                 const SizedBox(height: 32),
                 TextField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'אימייל',
-                    prefixIcon: Icon(Icons.email_outlined, color: AppTheme.mutedForeground),
-                  ),
+                  decoration: const InputDecoration(labelText: 'אימייל', prefixIcon: Icon(Icons.email_outlined, color: AppTheme.mutedForeground)),
                 ),
                 const SizedBox(height: 16),
                 TextField(
                   controller: _passwordController,
                   obscureText: true,
-                  decoration: const InputDecoration(
-                    labelText: 'סיסמה',
-                    prefixIcon: Icon(Icons.lock_outline, color: AppTheme.mutedForeground),
-                  ),
+                  decoration: const InputDecoration(labelText: 'סיסמה', prefixIcon: Icon(Icons.lock_outline, color: AppTheme.mutedForeground)),
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton(
                   onPressed: authState.isLoading ? null : _submit,
                   child: authState.isLoading
-                      ? const SizedBox(
-                          height: 20,
-                          width: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                        )
-                      : const Text(
-                          'התחברות',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                        ),
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('התחברות', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
+                const SizedBox(height: 16),
+                // כפתור ניווט למסך ההרשמה
+                TextButton(
+                  onPressed: () => context.go('/register'),
+                  child: const Text('עדיין אין לך חשבון? הירשם עכשיו', style: TextStyle(color: Colors.white)),
+                )
               ],
             ),
           ),
