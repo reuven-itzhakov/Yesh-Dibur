@@ -5,6 +5,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../feed/views/feed_screen.dart';
 import '../../chat/views/chat_inbox_screen.dart';
 import '../../search/views/search_screen.dart';
+import '../../../core/auth/auth_guard.dart';
 
 class MainLayoutScreen extends StatefulWidget {
   const MainLayoutScreen({super.key});
@@ -26,13 +27,24 @@ class _MainLayoutScreenState extends State<MainLayoutScreen> {
   ];
 // מתוך הקובץ _MainLayoutScreenState
   void _onItemTapped(int index) {
-    if (index == 2) {
-      _showCreateModal();
-    } else {
+    // אינדקס 0 (פיד) ואינדקס 1 (חיפוש) פתוחים לאורחים
+    if (index <= 1) {
       setState(() {
         _currentIndex = index;
       });
+      return;
     }
+
+    // שאר הטאבים דורשים התחברות
+    AuthGuard.check(context, onProceed: () {
+      if (index == 2) {
+        _showCreateModal(); // הפונקציה שלך שפותחת את תפריט היצירה
+      } else {
+        setState(() {
+          _currentIndex = index;
+        });
+      }
+    });
   }
 
   void _showCreateModal() {

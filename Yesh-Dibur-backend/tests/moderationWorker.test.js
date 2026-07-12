@@ -10,11 +10,11 @@ jest.mock('../src/config/db', () => ({
 }));
 
 // 2. Mock מתקדם לספרייה של Google Gemini שפותר את בעיית ה-Hoisting של Jest
-jest.mock('@google/generative-ai', () => {
+jest.mock('@google/genai', () => {
   const mockGenerate = jest.fn(); // יצירת הפונקציה בתוך הסקופ הסגור
   
   return {
-    GoogleGenerativeAI: jest.fn().mockImplementation(() => ({
+    GoogleGenAI: jest.fn().mockImplementation(() => ({
       getGenerativeModel: jest.fn().mockReturnValue({
         generateContent: mockGenerate
       })
@@ -28,7 +28,7 @@ jest.mock('@google/generative-ai', () => {
 const moderationWorker = require('../src/workers/moderationWorker');
 const { getChannel } = require('../src/config/rabbitmq');
 const { pool } = require('../src/config/db');
-const { mockGenerateContent } = require('@google/generative-ai');
+const { mockGenerateContent } = require('@google/genai');
 
 describe('AI Moderation Worker (moderationWorker.js)', () => {
   let mockChannel;

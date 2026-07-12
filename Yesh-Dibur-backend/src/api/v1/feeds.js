@@ -1,17 +1,14 @@
 const express = require('express');
 const authenticate = require('../../middlewares/auth');
-const validate = require('../../middlewares/validate');
+const optionalAuthenticate = require('../../middlewares/optionalAuth');
 const feedController = require('../../controllers/feedController');
-const { feedPaginationSchema } = require('../../validations/feedValidation');
 
 const router = express.Router();
 
-router.use(authenticate);
+// טאב 1: פיד הקבוצות שלי (מחייב משתמש רשום!)
+router.get('/my-groups', authenticate, feedController.getMyGroupsFeed);
 
-// טאב 1: פיד הקבוצות שלי (מציג פוסטים רק מקבוצות שהמשתמש חבר בהן)
-router.get('/my-groups', feedController.getMyGroupsFeed);
-
-// טאב 2: פיד גילוי והמלצות (מבוסס מיקום ותחומי עניין)
-router.get('/discovery', feedController.getDiscoveryFeed);
+// טאב 2: פיד גילוי והמלצות (פתוח גם לאורחים)
+router.get('/discovery', optionalAuthenticate, feedController.getDiscoveryFeed);
 
 module.exports = router;

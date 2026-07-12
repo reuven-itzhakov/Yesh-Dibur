@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../models/thread_model.dart';
 import '../providers/feed_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../../../core/auth/auth_guard.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -29,6 +31,7 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
   }
 
   @override
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -37,7 +40,10 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
           IconButton(
             icon: const Icon(Icons.account_circle),
             onPressed: () {
-              context.push('/profile');
+              // הגנה על כפתור הפרופיל האישי
+              AuthGuard.check(context, onProceed: () {
+                context.push('/profile');
+              });
             },
           )
         ],
@@ -53,11 +59,34 @@ class _FeedScreenState extends State<FeedScreen> with SingleTickerProviderStateM
       body: TabBarView(
         controller: _tabController,
         children: [
-          _FeedListView(provider: myGroupsFeedProvider),
+          _buildMyGroupsTab(), // שימוש בפונקציה חדשה שתבדוק אם המשתמש מחובר
           _FeedListView(provider: discoveryFeedProvider),
         ],
       ),
     );
+  }
+
+  // פונקציית עזר המציגה הודעה לאורחים או את הפיד למחוברים
+  Widget _buildMyGroupsTab() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.group_off, size: 64, color: AppTheme.mutedForeground),
+            const SizedBox(height: 16),
+            const Text('הצטרף לקבוצות כדי לראות את התוכן שלהן כאן', style: TextStyle(fontSize: 16)),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.push('/login'),
+              child: const Text('התחברות או הרשמה'),
+            )
+          ],
+        ),
+      );
+    }
+    return _FeedListView(provider: myGroupsFeedProvider);
   }
 }
 
@@ -185,14 +214,29 @@ class _ThreadCardBase extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(thread.content),
+              // ... המשך הקוד בתוך הכרטיסייה
               const SizedBox(height: 16),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Row(
                     children: [
-                      Icon(thread.isLiked ? Icons.favorite : Icons.favorite_border, 
-                          color: thread.isLiked ? AppTheme.primary : null, size: 20),
+                      // החלפנו את ה-Icon ב-IconButton עם AuthGuard
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        icon: Icon(
+                          thread.isLiked ? Icons.favorite : Icons.favorite_border, 
+                          color: thread.isLiked ? AppTheme.primary : null, 
+                          size: 20
+                        ),
+                        onPressed: () {
+                          AuthGuard.check(context, onProceed: () {
+                            // בהמשך: נקרא כאן לפונקציה של ה-Provider שתבצע את הלייק בשרת
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('מבצע לייק...')));
+                          });
+                        },
+                      ),
                       const SizedBox(width: 4),
                       Text('${thread.likesCount}'),
                     ],

@@ -11,37 +11,34 @@ import '../../features/auth/views/register_screen.dart';
 import '../../features/main_layout/views/main_layout_screen.dart';
 
 final appRouter = GoRouter(
-  initialLocation: '/',
+  initialLocation: '/login',
   redirect: (context, state) {
-    // בדיקה ישירה מול פיירבייס האם קיים משתמש
-    final user = FirebaseAuth.instance.currentUser;
-    final isLoggedIn = user != null;
-    
-    // בדיקה האם הנתיב הנוכחי הוא אזור ציבורי (התחברות או הרשמה)
+    final isLoggedIn = FirebaseAuth.instance.currentUser != null;
     final isAuthRoute = state.matchedLocation == '/login' || state.matchedLocation == '/register';
 
-    // אם לא מחובר ומנסה לגשת לאזור מוגן, זרוק להתחברות
-    if (!isLoggedIn && !isAuthRoute) {
-      return '/login';
-    }
-    
-    // אם מחובר ומנסה לגשת למסכי אימות, זרוק לפיד הראשי
+    // אם מחובר ומנסה לגשת למסכי התחברות, זרוק לפיד
     if (isLoggedIn && isAuthRoute) {
       return '/';
     }
 
-    return null; // המשך בניווט הרגיל
+    // הגנה נוקשה רק על מסכים פנימיים מובהקים ברמת הראוטר
+    final isStrictlyProtected = state.matchedLocation.startsWith('/profile');
+    if (!isLoggedIn && isStrictlyProtected) {
+      return '/login';
+    }
+
+    return null; // אורחים יכולים להישאר ב-'/' (הפיד) חופשי!
   },
   routes: [
-    GoRoute(
-      path: '/login',
-      name: 'login',
-      builder: (context, state) => const AuthScreen(),
-    ),
     GoRoute(
       path: '/',
       name: 'splash',
       builder: (context, state) => const SplashScreen(),
+    ),
+    GoRoute(
+      path: '/login',
+      name: 'login',
+      builder: (context, state) => const AuthScreen(),
     ),
     GoRoute(
       path: '/register',
