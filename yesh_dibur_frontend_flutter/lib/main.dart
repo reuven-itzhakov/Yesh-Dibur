@@ -1,47 +1,63 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:yesh_dibur_frontend_flutter/firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'firebase_options.dart'; // הקובץ שהשגת מ-Firebase
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // טעינת משתני הסביבה לפני הכל
   await dotenv.load(fileName: ".env");
 
-  // השורות הבאות חיוניות לאתחול Firebase מול ה-Native (iOS/Android)
+  // אתחול Firebase בצורה בטוחה בהתאם לפלטפורמה
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  runApp(
-    // חובה לעטוף את האפליקציה ב-ProviderScope כדי לאפשר שימוש ב-Riverpod
-    const ProviderScope(
-      child: YeshDiburApp(),
-    ),
-  );
+  runApp(const ProviderScope(child: YeshDiburApp()));
 }
 
-class YeshDiburApp extends StatelessWidget {
+// ... המשך המחלקה YeshDiburApp ללא שינוי כרגע
+
+class YeshDiburApp extends ConsumerWidget {
   const YeshDiburApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MaterialApp.router(
+  Widget build(BuildContext context, WidgetRef ref) {
+    // בהמשך ניקח את הראוטר מתוך ה-Provider שלו
+    // final router = ref.watch(appRouterProvider);
+
+    return MaterialApp(
       title: 'Yesh Dibur',
       debugShowCheckedModeBanner: false,
-      // הגדרה קשיחה של עברית ו-RTL לאפליקציה
+      
+      // הגדרות תמיכה בעברית וכיווניות (RTL)
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [
-        Locale('he', 'IL'),
+        Locale('he', 'IL'), // הגדרת עברית כשפת האם של האפליקציה
       ],
       locale: const Locale('he', 'IL'),
+
+      // בהמשך נחבר את העיצוב (Theme) שלנו
+      // theme: AppTheme.lightTheme,
+      
+      // כרגע נשים דף זמני עד שנקים את ה-go_router
+      home: const Scaffold(
+        body: Center(
+          child: Text(
+            'יש דיבור - יוצאים לדרך!',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
+      
+      // בהמשך נשנה ל:
+      // routerConfig: router,
     );
   }
 }
