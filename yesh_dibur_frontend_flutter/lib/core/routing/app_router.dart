@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/email_step_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/phone_step_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/profile_setup_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/shared/widgets/main_scaffold.dart';
 
 // מפתחות גלובליים לניהול מצב הניווט
@@ -18,7 +19,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/', // מסך הנחיתה שלנו (פיד הגילוי)
+    initialLocation: '/register', // מסך הנחיתה שלנו (פיד הגילוי)
     
     // ניהול שגיאות ניווט (למשל אם מנסים לגשת לנתיב שלא קיים)
     errorBuilder: (context, state) => Scaffold(
@@ -78,7 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/register/profile_setup',
-        builder: (context, state) => const Scaffold(body: Center(child: Text('מסך השלמת פרופיל - יבנה בהמשך'))),
+        builder: (context, state) => const ProfileSetupScreen(),
       ),
     ],
     
