@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/email_step_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/phone_step_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/profile_setup_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/feed/presentation/screens/home_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/shared/widgets/main_scaffold.dart';
 
 // מפתחות גלובליים לניהול מצב הניווט
@@ -19,7 +21,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   return GoRouter(
     navigatorKey: _rootNavigatorKey,
-    initialLocation: '/register', // מסך הנחיתה שלנו (פיד הגילוי)
+    initialLocation: '/', // מסך הנחיתה שלנו (פיד הגילוי)
     
     // ניהול שגיאות ניווט (למשל אם מנסים לגשת לנתיב שלא קיים)
     errorBuilder: (context, state) => Scaffold(
@@ -39,12 +41,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           // טאב 1: מסך הבית (פיד גילוי וקבוצות)
           GoRoute(
             path: '/',
-            builder: (context, state) => const Center(child: Text('מסך הבית (פיד)')),
+            builder: (context, state) => const HomeScreen(),
           ),
           // טאב 2: חיפוש
           GoRoute(
             path: '/search',
-            builder: (context, state) => const Center(child: Text('מסך חיפוש')),
+            builder: (context, state) => const SearchScreen(),
           ),
           // טאב 3: התראות
           GoRoute(
@@ -68,10 +70,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register',
         builder: (context, state) => const EmailStepScreen(),
-      ),
-      GoRoute(
-        path: '/register/phone',
-        builder: (context, state) => const Scaffold(body: Center(child: Text('מסך טלפון ו-OTP - יבנה בהמשך'))),
       ),
       GoRoute(
         path: '/register/phone',

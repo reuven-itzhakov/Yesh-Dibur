@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/api/api_constants.dart';
 import '../../../core/api/dio_client.dart';
 import '../../../core/errors/exceptions.dart';
-import '../../../core/errors/failures.dart';
 import 'models/user_model.dart';
 
 // הזרקת ה-Repository כדי שנוכל להשתמש בו ב-Providers

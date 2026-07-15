@@ -1,8 +1,8 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../config/env.dart';
 
-// חושף את לקוח ה-Dio לכלל האפליקציה דרך Riverpod
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(
     BaseOptions(
@@ -16,20 +16,24 @@ final dioProvider = Provider<Dio>((ref) {
     ),
   );
 
+  // ה-Interceptor שמוודא שאף קריאה לא יוצאת בלי טוקן אבטחה
   dio.interceptors.add(
     InterceptorsWrapper(
       onRequest: (options, handler) async {
-        // TODO: בהמשך נשלוף כאן את הטוקן האמיתי מ-Firebase Auth
-        // final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-        // if (token != null) {
-        //   options.headers['Authorization'] = 'Bearer $token';
-        // }
+        // שולפים את המשתמש המחובר הנוכחי מ-Firebase
+        final user = FirebaseAuth.instance.currentUser;
         
-        return handler.next(options); // ממשיך את הבקשה
+        if (user != null) {
+          // מבקשים טוקן עדכני (מחדש אותו אוטומטית אם פג תוקפו)
+          final token = await user.getIdToken();
+          if (token != null) {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        }
+        
+        return handler.next(options);
       },
       onError: (DioException e, handler) {
-        // מקום מרכזי לטיפול בשגיאות רוחביות
-        // למשל: אם חוזרת שגיאת 401 (לא מורשה), נפעיל כאן לוגיקת התנתקות
         return handler.next(e);
       },
     ),

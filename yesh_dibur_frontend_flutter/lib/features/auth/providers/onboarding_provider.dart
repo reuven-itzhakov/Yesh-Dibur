@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'onboarding_state.dart';
 import '../data/auth_repository.dart';
@@ -36,12 +37,19 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
   }
 
   // הפעולה הסופית שתקרא לנתיב ההרשמה בשרת
-  Future<bool> submitRegistration() async {
+Future<bool> submitRegistration() async {
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
+      // וידוא שהמשתמש אכן עבר את אימות הטלפון ב-Firebase
+      final firebaseUser = FirebaseAuth.instance.currentUser;
+      if (firebaseUser == null) {
+        state = state.copyWith(isLoading: false, errorMessage: 'שגיאת אימות: משתמש לא מחובר ב-Firebase');
+        return false;
+      }
+
       final repository = ref.read(authRepositoryProvider);
       
-      // הרכבת האובייקט שיישלח לשרת
+      // הרכבת האובייקט שיישלח לשרת (הטוקן יתווסף אוטומטית דרך ה-Dio Client)
       final userData = {
         'email': state.email,
         'phone': state.phone,
@@ -53,13 +61,11 @@ class OnboardingNotifier extends Notifier<OnboardingState> {
           'lng': state.location!.lng,
         }
       };
-
-      // TODO: הוספת יצירת משתמש ב-Firebase לפני הפנייה לשרת (נשלים כשנגיע ללוגיקת ה-OTP)
       
       await repository.registerUserToBackend(userData);
       
       state = state.copyWith(isLoading: false);
-      return true; // ההרשמה הצליחה
+      return true; // ההרשמה בשרת הצליחה!
     } on ServerException catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.message);
       return false;

@@ -52,18 +52,27 @@ class _LocationPickerBtnState extends State<LocationPickerBtn> {
       return;
     }
 
-    // שליפת המיקום
-    Position position = await Geolocator.getCurrentPosition();
-    
-    setState(() {
-      _isLoading = false;
-      _locationText = 'מיקום נקלט בהצלחה!';
-    });
+    // שליפת המיקום בתוך try-catch עם הגדרת דיוק
+    try {
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+      
+      setState(() {
+        _isLoading = false;
+        _locationText = 'מיקום נקלט בהצלחה!';
+      });
 
-    // העברת הנתונים החוצה
-    widget.onLocationSelected(
-      LocationModel(lat: position.latitude, lng: position.longitude),
-    );
+      // העברת הנתונים החוצה למסך ההרשמה
+      widget.onLocationSelected(
+        LocationModel(lat: position.latitude, lng: position.longitude),
+      );
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _locationText = 'שגיאה באיתור המיקום, נסה שוב';
+      });
+    }
   }
 
   @override
