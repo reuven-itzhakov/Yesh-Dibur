@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:yesh_dibur_frontend_flutter/firebase_options.dart';
+import 'core/routing/app_router.dart';
+import 'core/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,6 +34,7 @@ class YeshDiburApp extends StatelessWidget {
     return MaterialApp.router(
       title: 'Yesh Dibur',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.darkTheme,
       // הגדרה קשיחה של עברית ו-RTL לאפליקציה
       localizationsDelegates: const [
         GlobalMaterialLocalizations.delegate,
@@ -42,6 +45,7 @@ class YeshDiburApp extends StatelessWidget {
         Locale('he', 'IL'),
       ],
       locale: const Locale('he', 'IL'),
+      routerConfig: appRouter,
     );
   }
 }
