@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/email_step_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/phone_step_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/shared/widgets/main_scaffold.dart';
 
 // מפתחות גלובליים לניהול מצב הניווט
@@ -61,6 +63,22 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const Center(child: Text('מסך פרופיל והגדרות')),
+      ),
+      GoRoute(
+        path: '/register',
+        builder: (context, state) => const EmailStepScreen(),
+      ),
+      GoRoute(
+        path: '/register/phone',
+        builder: (context, state) => const Scaffold(body: Center(child: Text('מסך טלפון ו-OTP - יבנה בהמשך'))),
+      ),
+      GoRoute(
+        path: '/register/phone',
+        builder: (context, state) => const PhoneStepScreen(),
+      ),
+      GoRoute(
+        path: '/register/profile_setup',
+        builder: (context, state) => const Scaffold(body: Center(child: Text('מסך השלמת פרופיל - יבנה בהמשך'))),
       ),
     ],
     
