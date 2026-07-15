@@ -40,11 +40,11 @@ dependencies:
   geocoding: ^2.1.1
   
   # Firebase Services (הוסף בהמשך כשנחבר את הפרויקט ב-Firebase)
-  firebase_core: ^2.24.2
-  firebase_auth: ^4.15.3
-  firebase_storage: ^11.5.6
-  firebase_crashlytics: ^3.4.9
-  firebase_analytics: ^10.7.4
+  firebase_core: ^4.12.1
+  firebase_auth: ^6.5.6
+  firebase_storage: ^13.4.5
+  firebase_crashlytics: ^5.2.6
+  firebase_analytics: ^12.4.5
 
 dev_dependencies:
   flutter_test:
