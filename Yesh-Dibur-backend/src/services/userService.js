@@ -14,7 +14,11 @@ const userService = {
         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
         ${location ? 'ST_SetSRID(ST_MakePoint($11, $12), 4326)' : 'NULL'}
       )
-      RETURNING *;
+      RETURNING id, name, email, phone, birth_date, interests, bio, instagram_url, tiktok_url, profile_image_url,
+      CASE 
+        WHEN location IS NOT NULL THEN json_build_object('lat', ST_Y(location::geometry), 'lng', ST_X(location::geometry))
+        ELSE NULL 
+      END AS location;
     `;
 
     const values = [
