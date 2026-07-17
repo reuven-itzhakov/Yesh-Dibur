@@ -51,10 +51,10 @@ Future<bool> submitRegistration() async {
       
       // הרכבת האובייקט שיישלח לשרת (הטוקן יתווסף אוטומטית דרך ה-Dio Client)
       final userData = {
+        'name': state.username, // תיקון: השרת דורש 'name' ולא 'username'
         'email': state.email,
         'phone': state.phone,
-        'username': state.username,
-        'birth_date': state.birthDate?.toIso8601String(),
+        'birth_date': state.birthDate?.toUtc().toIso8601String(),
         'interests': state.interests,
         if (state.location != null) 'location': {
           'lat': state.location!.lat,
@@ -70,7 +70,7 @@ Future<bool> submitRegistration() async {
       state = state.copyWith(isLoading: false, errorMessage: e.message);
       return false;
     } catch (e) {
-      state = state.copyWith(isLoading: false, errorMessage: 'שגיאה לא צפויה התרחשה');
+      state = state.copyWith(isLoading: false, errorMessage: 'שגיאה לא צפויה התרחשה: $e');
       return false;
     }
   }

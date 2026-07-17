@@ -35,12 +35,27 @@ class _PhoneStepScreenState extends ConsumerState<PhoneStepScreen> {
 
     setState(() => _isLoading = true);
 
-    // עדכון ה-Provider עם מספר הטלפון
-    ref.read(onboardingProvider.notifier).updatePhone(_phoneController.text.trim());
+    // ניקוי המספר מרווחים ומקפים
+    String rawPhone = _phoneController.text.trim().replaceAll(RegExp(r'[\s\-]'), '');
+    String formattedPhone;
+
+    // סידור הפורמט ל-E.164 תיקני עבור פיירבייס
+    if (rawPhone.startsWith('+972')) {
+      formattedPhone = rawPhone;
+    } else if (rawPhone.startsWith('972')) {
+      formattedPhone = '+$rawPhone';
+    } else if (rawPhone.startsWith('0')) {
+      formattedPhone = '+972${rawPhone.substring(1)}';
+    } else {
+      formattedPhone = '+972$rawPhone';
+    }
+
+    // עדכון ה-Provider עם המספר המסודר (לשמירה בשרת שלנו)
+    ref.read(onboardingProvider.notifier).updatePhone(formattedPhone);
 
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: '+972${_phoneController.text.trim().replaceFirst(RegExp(r'^0+'), '')}', // התאמה לקידומת ישראל
+        phoneNumber: formattedPhone, // כאן מעבירים את המספר המסודר
         verificationCompleted: (PhoneAuthCredential credential) async {
           // למקרים של אימות אוטומטי (לרוב באנדרואיד)
           await _signInWithCredential(credential);

@@ -5,8 +5,10 @@ import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/e
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/phone_step_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/profile_setup_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/feed/presentation/screens/home_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/group/presentation/screens/create_group_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/shared/widgets/main_scaffold.dart';
+import 'package:yesh_dibur_frontend_flutter/features/feed/presentation/screens/create_thread_screen.dart';
 
 // מפתחות גלובליים לניהול מצב הניווט
 final _rootNavigatorKey = GlobalKey<NavigatorState>();
@@ -78,6 +80,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/register/profile_setup',
         builder: (context, state) => const ProfileSetupScreen(),
+      ),
+      GoRoute(
+        path: '/create_group',
+        builder: (context, state) => const CreateGroupScreen(),
+      ),
+      GoRoute(
+        path: '/create_thread',
+        builder: (context, state) => const CreateThreadScreen(),
       ),
     ],
     

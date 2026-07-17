@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // הייבוא החדש של Riverpod
 import '../../core/theme/app_colors.dart';
+import '../../features/auth/providers/auth_provider.dart'; // כדי לדעת אם מחובר או אורח
+import 'guest_modal_bottom_sheet.dart'; // החלון של האורחים
+import 'creation_bottom_sheet.dart'; // תפריט היצירה החדש שעשינו
 
-class MainScaffold extends StatelessWidget {
+// שינינו ל-ConsumerWidget כדי שנוכל להאזין ל-Providers
+class MainScaffold extends ConsumerWidget {
   final Widget child;
   
   const MainScaffold({super.key, required this.child});
 
   @override
-  Widget build(BuildContext context) {
-    // מציאת המיקום הנוכחי כדי להאיר את האייקון הנכון בסרגל
+  Widget build(BuildContext context, WidgetRef ref) { // הוספנו כאן את ref
     final String location = GoRouterState.of(context).uri.toString();
     
     int currentIndex = 0;
     if (location.startsWith('/search')) currentIndex = 1;
-    // אינדקס 2 שמור לכפתור ה-FAB (יצירה)
     if (location.startsWith('/notifications')) currentIndex = 3;
     if (location.startsWith('/chat')) currentIndex = 4;
 
@@ -24,8 +27,16 @@ class MainScaffold extends StatelessWidget {
       floatingActionButton: FloatingActionButton(
         backgroundColor: AppColors.primary,
         onPressed: () {
-          // TODO: פתיחת Bottom Sheet לבחירה בין "יצירת קבוצה" ל"יצירת פוסט"
-          // או לחלופין הקפצת מסך Guest Modal אם המשתמש הוא אורח
+          // הבדיקה החכמה שלנו: האם המשתמש מחובר?
+          final authState = ref.read(authProvider);
+          
+          if (authState.value == null) {
+            // אם הוא אורח - נקפיץ לו הצעת הרשמה
+            GuestModalBottomSheet.show(context);
+          } else {
+            // אם הוא מחובר - נפתח לו את תפריט היצירה
+            CreationBottomSheet.show(context);
+          }
         },
         child: const Icon(Icons.add, color: AppColors.white),
       ),
@@ -55,7 +66,6 @@ class MainScaffold extends StatelessWidget {
             const SizedBox(width: 48), // מרווח עבור ה-FAB המרכזי
             _buildNavItem(
               context, 
-              // TODO: בהמשך נוסיף כאן חיווי אדום (Badge) למספר ההתראות מה-Provider
               icon: Icons.notifications, 
               label: 'התראות', 
               index: 3, 
@@ -64,7 +74,6 @@ class MainScaffold extends StatelessWidget {
             ),
             _buildNavItem(
               context, 
-              // TODO: בהמשך נוסיף כאן חיווי אדום (Badge) למספר ההודעות מה-Provider
               icon: Icons.mail, 
               label: 'צ\'אט', 
               index: 4, 
