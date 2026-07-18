@@ -7,8 +7,8 @@ class ApiConstants {
   static const String deviceToken = '$apiVersion/users/device';
 
   // פיד
-  static const String discoveryFeed = '$apiVersion/feed/discovery';
-  static const String myGroupsFeed = '$apiVersion/feed/my-groups';
+  static const String discoveryFeed = '$apiVersion/feeds/discovery';
+  static const String myGroupsFeed = '$apiVersion/feeds/my-groups';
 
   // חיפוש
   static const String search = '$apiVersion/search';

@@ -4,6 +4,15 @@ class ServerException implements Exception {
   final int? statusCode;
 
   ServerException({required this.message, this.statusCode});
+
+  // הוספנו את זה כדי שהשגיאה האמיתית תוצג למסך
+  @override
+  String toString() {
+    if (statusCode != null) {
+      return 'שגיאה $statusCode: $message';
+    }
+    return message;
+  }
 }
 
 // נזרק כאשר אין חיבור אינטרנט או שהבקשה נכשלה לחלוטין

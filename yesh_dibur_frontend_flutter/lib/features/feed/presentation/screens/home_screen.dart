@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../auth/providers/auth_provider.dart';
 import '../../providers/discovery_feed_provider.dart';
 import '../../providers/my_groups_feed_provider.dart';
@@ -36,6 +37,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> with SingleTickerProvid
         title: const Text('יש דיבור', style: TextStyle(fontWeight: FontWeight.w900, color: AppColors.primary)),
         centerTitle: false,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.account_circle, size: 28),
+            onPressed: () {
+              final authState = ref.read(authProvider);
+              if (authState.value == null) {
+                GuestModalBottomSheet.show(context);
+              } else {
+                context.push('/profile');
+              }
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
         bottom: TabBar(
           controller: _tabController,
           labelColor: AppColors.primary,
@@ -147,8 +162,8 @@ class _MyGroupsTab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final authState = ref.watch(authProvider);
 
-    // חסימת הגישה לאורחים
     if (authState.value == null) {
+      // חסימת אורחים - הקוד נשאר אותו דבר
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -167,24 +182,56 @@ class _MyGroupsTab extends ConsumerWidget {
       );
     }
 
-    // אם המשתמש מחובר, נציג את הפיד בדיוק כמו פיד הגילוי
     final feedState = ref.watch(myGroupsFeedProvider);
-    // (כאן אפשר לממש ScrollController זהה לזה שבפיד הגילוי כדי למשוך פוסטים נוספים)
-    // כרגע נציג רשימה פשוטה כדי לא לשכפל קוד בדוגמה זו:
     
     return feedState.when(
       data: (threads) {
-        if (threads.isEmpty) {
-          return const Center(child: Text('עדיין לא הצטרפת לקבוצות. חפש קבוצות חדשות!'));
-        }
-        return ListView.builder(
-          padding: EdgeInsets.zero,
-          itemCount: threads.length,
-          itemBuilder: (context, index) => ThreadCard(thread: threads[index]),
+        return RefreshIndicator(
+          onRefresh: () async {
+            // רענון הפיד מחדש (מושך מלמעלה)
+            ref.invalidate(myGroupsFeedProvider);
+          },
+          child: threads.isEmpty
+              // משתמשים ב-ListView גם למצב ריק כדי לאפשר משיכה לרענון
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                    const Center(child: Text('עדיין לא פרסמו פוסטים בקבוצות שלך.')),
+                  ],
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.zero,
+                  itemCount: threads.length,
+                  itemBuilder: (context, index) => ThreadCard(thread: threads[index]),
+                ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
-      error: (error, _) => const Center(child: Text('שגיאה בטעינת הקבוצות שלך.')),
+      error: (error, _) => Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+              const SizedBox(height: 16),
+              // עכשיו נראה בדיוק מה השגיאה שהשרת זרק!
+              Text(
+                'שגיאה מהשרת:\n$error', 
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: AppColors.error),
+              ),
+              const SizedBox(height: 24),
+              TextButton.icon(
+                icon: const Icon(Icons.refresh),
+                label: const Text('רענן עמוד'),
+                onPressed: () => ref.invalidate(myGroupsFeedProvider),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

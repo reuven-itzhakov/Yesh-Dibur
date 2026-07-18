@@ -6,6 +6,8 @@ import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/p
 import 'package:yesh_dibur_frontend_flutter/features/auth/presentation/screens/profile_setup_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/feed/presentation/screens/home_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/group/presentation/screens/create_group_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/group/presentation/screens/group_screen.dart';
+import 'package:yesh_dibur_frontend_flutter/features/profile/presentation/screens/profile_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/features/search/presentation/screens/search_screen.dart';
 import 'package:yesh_dibur_frontend_flutter/shared/widgets/main_scaffold.dart';
 import 'package:yesh_dibur_frontend_flutter/features/feed/presentation/screens/create_thread_screen.dart';
@@ -65,9 +67,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       
       // מסכים שלא צריכים את סרגל הניווט התחתון יוגדרו מחוץ ל-ShellRoute
       // לדוגמה, מסכי הרשמה ופרופיל פנימי
+      // מחוץ ל-ShellRoute:
       GoRoute(
         path: '/profile',
-        builder: (context, state) => const Center(child: Text('מסך פרופיל והגדרות')),
+        builder: (context, state) => const ProfileScreen(),
       ),
       GoRoute(
         path: '/register',
@@ -88,6 +91,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/create_thread',
         builder: (context, state) => const CreateThreadScreen(),
+      ),
+      GoRoute(
+        path: '/group/:id',
+        builder: (context, state) {
+          // שולפים את ה-ID מה-URL
+          final groupId = state.pathParameters['id']!;
+          return GroupScreen(groupId: groupId);
+        },
       ),
     ],
     

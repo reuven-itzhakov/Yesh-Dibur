@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:yesh_dibur_frontend_flutter/features/auth/providers/auth_provider.dart';
 import 'onboarding_state.dart';
 import '../data/auth_repository.dart';
 import '../data/models/user_model.dart';
@@ -61,11 +62,14 @@ Future<bool> submitRegistration() async {
           'lng': state.location!.lng,
         }
       };
+      final createdUser = await repository.registerUserToBackend(userData);
       
-      await repository.registerUserToBackend(userData);
+      // שינוי 2: דוחפים את המשתמש ישירות לסטייט הגלובלי!
+      ref.read(authProvider.notifier).setUser(createdUser);
       
       state = state.copyWith(isLoading: false);
       return true; // ההרשמה בשרת הצליחה!
+      
     } on ServerException catch (e) {
       state = state.copyWith(isLoading: false, errorMessage: e.message);
       return false;

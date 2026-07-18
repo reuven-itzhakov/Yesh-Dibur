@@ -36,7 +36,7 @@ const userService = {
 
   getUser: async (uid) => {
     const query = `
-      SELECT *, ST_X(location::geometry) as lng, ST_Y(location::geometry) as lat
+      SELECT *, json_build_object('lng', ST_X(location::geometry), 'lat', ST_Y(location::geometry)) as location
       FROM users 
       WHERE id = $1 AND deleted_at IS NULL;
     `;
@@ -71,7 +71,7 @@ const userService = {
       UPDATE users 
       SET ${updates.join(', ')}
       WHERE id = $${paramIndex} AND deleted_at IS NULL
-      RETURNING *, ST_X(location::geometry) as lng, ST_Y(location::geometry) as lat;
+      RETURNING *, json_build_object('lng', ST_X(location::geometry), 'lat', ST_Y(location::geometry)) as location;
     `;
 
     const { rows } = await pool.query(query, values);

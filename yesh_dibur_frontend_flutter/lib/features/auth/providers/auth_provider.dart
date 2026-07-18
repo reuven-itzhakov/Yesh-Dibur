@@ -11,16 +11,28 @@ final authProvider = AsyncNotifierProvider<AuthNotifier, UserModel?>(() {
 class AuthNotifier extends AsyncNotifier<UserModel?> {
   @override
   Future<UserModel?> build() async {
-    // מאזינים לשינויי התחברות מ-Firebase
-    final firebaseUser = FirebaseAuth.instance.currentUser;
+    // התיקון הקריטי: אנחנו אומרים לאפליקציה "תעצרי הכל ותחכי לפעימה 
+    // הראשונה של פיירבייס, כדי שנספיק לקרוא את הזיכרון של המכשיר".
+    final firebaseUser = await FirebaseAuth.instance.authStateChanges().first;
     
     if (firebaseUser != null) {
-      // אם יש משתמש ב-Firebase, נמשוך את הפרופיל המלא שלו משרת ה-Node.js שלנו
-      return _fetchUserProfile();
+      // פיירבייס זוכר אותך! עכשיו נמשוך את הנתונים הנוספים מהשרת.
+      final userProfile = await _fetchUserProfile();
+      
+      // אם למרות שפיירבייס זוכר אותך אין לנו פרופיל, הבעיה בשרת.
+      if (userProfile == null) {
+        print('פיירבייס זיהה את המשתמש, אבל משיכת הפרופיל מהשרת נכשלה.');
+      }
+      
+      return userProfile;
     }
     
-    // אם אין משתמש, אנחנו במצב אורח (Guest Mode)
+    // אם פיירבייס החזיר null בפירוש, אתה באמת אורח
     return null;
+  }
+
+  void setUser(UserModel user) {
+    state = AsyncData(user);
   }
 
   Future<UserModel?> _fetchUserProfile() async {
@@ -29,8 +41,9 @@ class AuthNotifier extends AsyncNotifier<UserModel?> {
       final user = await repository.getUserProfile();
       return user;
     } catch (e) {
-      // אם יש שגיאה במשיכת הפרופיל (למשל השרת למטה), נוכל לטפל בזה כאן
-      print('Error fetching user profile: $e');
+      // כאן אנחנו מדפיסים שגיאה צועקת לקונסולה.
+      // אם תראה את זה כשתפעיל את האפליקציה, סימן שהבעיה בנתיב ה-GET בשרת שלך.
+      print('🚨 שגיאה מול השרת בעת הפעלה מחדש: $e');
       return null;
     }
   }

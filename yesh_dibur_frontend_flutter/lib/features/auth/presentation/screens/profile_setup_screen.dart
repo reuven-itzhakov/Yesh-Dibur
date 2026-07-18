@@ -7,6 +7,7 @@ import '../widgets/location_picker_btn.dart';
 import '../widgets/interests_selector.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../shared/widgets/custom_error_snackbar.dart';
+import '../../providers/auth_provider.dart';
 
 class ProfileSetupScreen extends ConsumerStatefulWidget {
   const ProfileSetupScreen({super.key});
@@ -59,7 +60,6 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
       return;
     }
 
-    // עדכון הסטייט ב-Provider
     ref.read(onboardingProvider.notifier).updateProfileData(
       username: _usernameController.text.trim(),
       birthDate: _selectedDate,
@@ -67,14 +67,12 @@ class _ProfileSetupScreenState extends ConsumerState<ProfileSetupScreen> {
     );
     ref.read(onboardingProvider.notifier).updateInterests(_selectedInterests);
 
-    // ביצוע קריאת הרישום מול השרת
     final success = await ref.read(onboardingProvider.notifier).submitRegistration();
     
     if (success && mounted) {
       CustomErrorSnackbar.showSuccess(context, 'החשבון נוצר בהצלחה!');
-      context.go('/'); // העברת המשתמש המחובר למסך הבית
+      context.go('/'); 
     } else {
-      // במידה ויש שגיאה, נשלוף אותה מהסטייט ונציג
       final errorMsg = ref.read(onboardingProvider).errorMessage;
       if (errorMsg != null && mounted) {
         CustomErrorSnackbar.show(context, errorMsg);
