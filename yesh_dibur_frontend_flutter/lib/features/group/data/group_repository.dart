@@ -55,4 +55,27 @@ class GroupRepository {
       throw ServerException(message: 'שגיאה לא צפויה: $e');
     }
   }
+
+  // משיכת הקבוצות שהמשתמש חבר בהן
+  Future<List<GroupModel>> getMyGroups() async {
+    try {
+      final response = await dio.get('${ApiConstants.userGroups}'); 
+      
+      List data;
+      // בדיקה חכמה: האם השרת החזיר מערך ישירות או אובייקט?
+      if (response.data is List) {
+        data = response.data; // השרת החזיר מערך ישירות
+      } else {
+        data = response.data['data'] ?? []; // השרת עטף את התשובה
+      }
+
+      return data.map((json) => GroupModel.fromJson(json)).toList();
+    } on DioException catch (e) {
+      throw ServerException(
+        message: e.response?.data['error'] ?? 'שגיאה במשיכת הקבוצות שלך',
+      );
+    } catch (e) {
+      throw ServerException(message: 'שגיאה לא צפויה: $e');
+    }
+  }
 }

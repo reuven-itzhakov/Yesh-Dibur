@@ -33,7 +33,17 @@ class FeedRepository {
       
       // אנו מניחים שהשרת מחזיר אובייקט JSON המכיל מפתח 'data' עם מערך הפוסטים
       final List data = response.data['data'] ?? [];
-      return data.map((json) => ThreadModel.fromJson(json)).toList();
+      return data.map((json) {
+        try {
+          return ThreadModel.fromJson(json);
+        } catch (e) {
+          // ברגע שיש שגיאת המרה, נדפיס את ה-JSON הבעייתי במלואו לקונסולה!
+          print('🚨 שגיאת המרה בפוסט. ה-JSON שהתקבל: $json');
+          print('🚨 סוג השגיאה: $e');
+          // אנחנו זורקים את השגיאה הלאה כדי שה-UI יתפוס אותה
+          throw Exception('שגיאת נתונים בפוסט. פתח קונסולה לפרטים.'); 
+        }
+      }).toList();
     } on DioException catch (e) {
       throw ServerException(
         message: e.response?.data['error'] ?? 'שגיאה במשיכת פיד הגילוי',
@@ -59,7 +69,17 @@ class FeedRepository {
       );
       
       final List data = response.data['data'] ?? [];
-      return data.map((json) => ThreadModel.fromJson(json)).toList();
+      return data.map((json) {
+        try {
+          return ThreadModel.fromJson(json);
+        } catch (e) {
+          // ברגע שיש שגיאת המרה, נדפיס את ה-JSON הבעייתי במלואו לקונסולה!
+          print('🚨 שגיאת המרה בפוסט. ה-JSON שהתקבל: $json');
+          print('🚨 סוג השגיאה: $e');
+          // אנחנו זורקים את השגיאה הלאה כדי שה-UI יתפוס אותה
+          throw Exception('שגיאת נתונים בפוסט. פתח קונסולה לפרטים.'); 
+        }
+      }).toList();
     } on DioException catch (e) {
       throw ServerException(
         message: e.response?.data['error'] ?? 'שגיאה במשיכת פיד הקבוצות',

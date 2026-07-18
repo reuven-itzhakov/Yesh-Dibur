@@ -26,25 +26,25 @@ mixin _$ThreadModel {
   String get authorId => throw _privateConstructorUsedError;
   @JsonKey(name: 'author_name')
   String get authorName => throw _privateConstructorUsedError;
-  @JsonKey(name: 'author_avatar')
-  String? get authorAvatar => throw _privateConstructorUsedError;
+  @JsonKey(name: 'author_image')
+  String? get authorAvatar => throw _privateConstructorUsedError; // תוקן ל-author_image
   @JsonKey(name: 'group_id')
   String get groupId => throw _privateConstructorUsedError;
   @JsonKey(name: 'group_name')
-  String get groupName => throw _privateConstructorUsedError;
+  String get groupName => throw _privateConstructorUsedError; // ערך דיפולטיבי מונע קריסה
   @JsonKey(name: 'group_cover')
   String? get groupCover => throw _privateConstructorUsedError;
   String get content => throw _privateConstructorUsedError;
   @JsonKey(name: 'bg_type')
-  String get bgType => throw _privateConstructorUsedError; // 'image' או 'color'
+  String get bgType => throw _privateConstructorUsedError;
   @JsonKey(name: 'bg_value')
   String get bgValue => throw _privateConstructorUsedError;
   @JsonKey(name: 'likes_count')
   int get likesCount => throw _privateConstructorUsedError;
   @JsonKey(name: 'comments_count')
   int get commentsCount => throw _privateConstructorUsedError;
-  @JsonKey(name: 'is_liked_by_me')
-  bool get isLikedByMe => throw _privateConstructorUsedError;
+  @JsonKey(name: 'is_liked')
+  bool get isLikedByMe => throw _privateConstructorUsedError; // תוקן ל-is_liked
   @JsonKey(name: 'created_at')
   DateTime get createdAt => throw _privateConstructorUsedError;
 
@@ -69,7 +69,7 @@ abstract class $ThreadModelCopyWith<$Res> {
     String id,
     @JsonKey(name: 'author_id') String authorId,
     @JsonKey(name: 'author_name') String authorName,
-    @JsonKey(name: 'author_avatar') String? authorAvatar,
+    @JsonKey(name: 'author_image') String? authorAvatar,
     @JsonKey(name: 'group_id') String groupId,
     @JsonKey(name: 'group_name') String groupName,
     @JsonKey(name: 'group_cover') String? groupCover,
@@ -78,7 +78,7 @@ abstract class $ThreadModelCopyWith<$Res> {
     @JsonKey(name: 'bg_value') String bgValue,
     @JsonKey(name: 'likes_count') int likesCount,
     @JsonKey(name: 'comments_count') int commentsCount,
-    @JsonKey(name: 'is_liked_by_me') bool isLikedByMe,
+    @JsonKey(name: 'is_liked') bool isLikedByMe,
     @JsonKey(name: 'created_at') DateTime createdAt,
   });
 }
@@ -190,7 +190,7 @@ abstract class _$$ThreadModelImplCopyWith<$Res>
     String id,
     @JsonKey(name: 'author_id') String authorId,
     @JsonKey(name: 'author_name') String authorName,
-    @JsonKey(name: 'author_avatar') String? authorAvatar,
+    @JsonKey(name: 'author_image') String? authorAvatar,
     @JsonKey(name: 'group_id') String groupId,
     @JsonKey(name: 'group_name') String groupName,
     @JsonKey(name: 'group_cover') String? groupCover,
@@ -199,7 +199,7 @@ abstract class _$$ThreadModelImplCopyWith<$Res>
     @JsonKey(name: 'bg_value') String bgValue,
     @JsonKey(name: 'likes_count') int likesCount,
     @JsonKey(name: 'comments_count') int commentsCount,
-    @JsonKey(name: 'is_liked_by_me') bool isLikedByMe,
+    @JsonKey(name: 'is_liked') bool isLikedByMe,
     @JsonKey(name: 'created_at') DateTime createdAt,
   });
 }
@@ -302,17 +302,17 @@ class _$ThreadModelImpl implements _ThreadModel {
   const _$ThreadModelImpl({
     required this.id,
     @JsonKey(name: 'author_id') required this.authorId,
-    @JsonKey(name: 'author_name') required this.authorName,
-    @JsonKey(name: 'author_avatar') this.authorAvatar,
+    @JsonKey(name: 'author_name') this.authorName = 'משתמש אנונימי',
+    @JsonKey(name: 'author_image') this.authorAvatar,
     @JsonKey(name: 'group_id') required this.groupId,
-    @JsonKey(name: 'group_name') required this.groupName,
+    @JsonKey(name: 'group_name') this.groupName = 'קבוצה',
     @JsonKey(name: 'group_cover') this.groupCover,
     required this.content,
     @JsonKey(name: 'bg_type') required this.bgType,
     @JsonKey(name: 'bg_value') required this.bgValue,
     @JsonKey(name: 'likes_count') this.likesCount = 0,
     @JsonKey(name: 'comments_count') this.commentsCount = 0,
-    @JsonKey(name: 'is_liked_by_me') this.isLikedByMe = false,
+    @JsonKey(name: 'is_liked') this.isLikedByMe = false,
     @JsonKey(name: 'created_at') required this.createdAt,
   });
 
@@ -328,14 +328,16 @@ class _$ThreadModelImpl implements _ThreadModel {
   @JsonKey(name: 'author_name')
   final String authorName;
   @override
-  @JsonKey(name: 'author_avatar')
+  @JsonKey(name: 'author_image')
   final String? authorAvatar;
+  // תוקן ל-author_image
   @override
   @JsonKey(name: 'group_id')
   final String groupId;
   @override
   @JsonKey(name: 'group_name')
   final String groupName;
+  // ערך דיפולטיבי מונע קריסה
   @override
   @JsonKey(name: 'group_cover')
   final String? groupCover;
@@ -344,7 +346,6 @@ class _$ThreadModelImpl implements _ThreadModel {
   @override
   @JsonKey(name: 'bg_type')
   final String bgType;
-  // 'image' או 'color'
   @override
   @JsonKey(name: 'bg_value')
   final String bgValue;
@@ -355,8 +356,9 @@ class _$ThreadModelImpl implements _ThreadModel {
   @JsonKey(name: 'comments_count')
   final int commentsCount;
   @override
-  @JsonKey(name: 'is_liked_by_me')
+  @JsonKey(name: 'is_liked')
   final bool isLikedByMe;
+  // תוקן ל-is_liked
   @override
   @JsonKey(name: 'created_at')
   final DateTime createdAt;
@@ -434,17 +436,17 @@ abstract class _ThreadModel implements ThreadModel {
   const factory _ThreadModel({
     required final String id,
     @JsonKey(name: 'author_id') required final String authorId,
-    @JsonKey(name: 'author_name') required final String authorName,
-    @JsonKey(name: 'author_avatar') final String? authorAvatar,
+    @JsonKey(name: 'author_name') final String authorName,
+    @JsonKey(name: 'author_image') final String? authorAvatar,
     @JsonKey(name: 'group_id') required final String groupId,
-    @JsonKey(name: 'group_name') required final String groupName,
+    @JsonKey(name: 'group_name') final String groupName,
     @JsonKey(name: 'group_cover') final String? groupCover,
     required final String content,
     @JsonKey(name: 'bg_type') required final String bgType,
     @JsonKey(name: 'bg_value') required final String bgValue,
     @JsonKey(name: 'likes_count') final int likesCount,
     @JsonKey(name: 'comments_count') final int commentsCount,
-    @JsonKey(name: 'is_liked_by_me') final bool isLikedByMe,
+    @JsonKey(name: 'is_liked') final bool isLikedByMe,
     @JsonKey(name: 'created_at') required final DateTime createdAt,
   }) = _$ThreadModelImpl;
 
@@ -460,14 +462,14 @@ abstract class _ThreadModel implements ThreadModel {
   @JsonKey(name: 'author_name')
   String get authorName;
   @override
-  @JsonKey(name: 'author_avatar')
-  String? get authorAvatar;
+  @JsonKey(name: 'author_image')
+  String? get authorAvatar; // תוקן ל-author_image
   @override
   @JsonKey(name: 'group_id')
   String get groupId;
   @override
   @JsonKey(name: 'group_name')
-  String get groupName;
+  String get groupName; // ערך דיפולטיבי מונע קריסה
   @override
   @JsonKey(name: 'group_cover')
   String? get groupCover;
@@ -475,7 +477,7 @@ abstract class _ThreadModel implements ThreadModel {
   String get content;
   @override
   @JsonKey(name: 'bg_type')
-  String get bgType; // 'image' או 'color'
+  String get bgType;
   @override
   @JsonKey(name: 'bg_value')
   String get bgValue;
@@ -486,8 +488,8 @@ abstract class _ThreadModel implements ThreadModel {
   @JsonKey(name: 'comments_count')
   int get commentsCount;
   @override
-  @JsonKey(name: 'is_liked_by_me')
-  bool get isLikedByMe;
+  @JsonKey(name: 'is_liked')
+  bool get isLikedByMe; // תוקן ל-is_liked
   @override
   @JsonKey(name: 'created_at')
   DateTime get createdAt;

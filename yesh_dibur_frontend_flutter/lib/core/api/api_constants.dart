@@ -5,6 +5,7 @@ class ApiConstants {
   static const String register = '$apiVersion/users/register';
   static const String profile = '$apiVersion/users/profile';
   static const String deviceToken = '$apiVersion/users/device';
+  static const String userGroups = '$apiVersion/users/groups';
 
   // פיד
   static const String discoveryFeed = '$apiVersion/feeds/discovery';
